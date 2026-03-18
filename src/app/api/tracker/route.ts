@@ -1,0 +1,139 @@
+/**
+ * File: src/app/api/tracker/route.ts
+ *
+ * Code order (always):
+ * 1) Imports
+ * 2) Types
+ * 3) Helpers
+ * 4) Handlers (GET, POST)
+ */
+
+/* 1) Imports: framework + app services */
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth'
+import { defaultTrackerSchema } from '@/lib/trackerSchema'
+
+/* 2) Types: request/response shapes for this route */
+type CreateTrackerBody = {
+  title?: string
+}
+
+type TrackerListItem = {
+  id: string
+  title: string
+  createdAt: string
+  // Later this will be driven by per-tracker settings (which stats to show)
+  summary: Record<string, unknown>
+}
+
+/* 3) Helpers: parsing, validation, normalization */
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === 'string' && v.trim().length > 0
+}
+
+async function safeReadJson<T>(req: Request): Promise<{ ok: true; data: T } | { ok: false }> {
+  try {
+    const data = (await req.json()) as T
+    return { ok: true, data }
+  } catch {
+    return { ok: false }
+  }
+}
+
+/**
+ * Prisma Json fields must receive JSON-serializable values.
+ * We normalize defaultTrackerSchema to a plain object:
+ * - if it's a function -> call it
+ * - if it's already an object -> use it
+ */
+function getDefaultSchema(): unknown {
+  return typeof defaultTrackerSchema === 'function' ? defaultTrackerSchema() : defaultTrackerSchema
+}
+
+/* 4) Handlers: the API route logic */
+export async function GET() {
+  // (a) Auth
+  const user = await getCurrentUser()
+  if (!user) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // (b) Fetch list
+  const items = await prisma.trackerItem.findMany({
+    where: { userId: user.id, type: 'tracker', },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      title: true,
+      type: true,
+      createdAt: true,
+      // We only need a count-like signal for now (future: configurable stats)
+      entries: { select: { id: true } },
+    },
+  })
+
+  // (c) Shape response (keep stable + forward-compatible)
+  const itemsWithSummary: TrackerListItem[] = items.map((it) => ({
+    id: it.id,
+    title: it.title,
+    createdAt: it.createdAt.toISOString(),
+    summary: {
+      // For now: we are NOT showing this in the UI (per your note),
+      // but leaving it available for later.
+      entryCount: it.entries.length,
+    },
+  }))
+
+  return NextResponse.json({ ok: true, items: itemsWithSummary })
+}
+
+export async function POST(req: Request) {
+  // (a) Auth
+  const user = await getCurrentUser()
+  if (!user) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // (b) Parse body
+  const parsed = await safeReadJson<CreateTrackerBody>(req)
+  if (!parsed.ok) {
+    return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const { title } = parsed.data
+
+  // (c) Validate inputs
+  if (!isNonEmptyString(title)) {
+    return NextResponse.json({ ok: false, error: 'Title is required' }, { status: 400 })
+  }
+
+  // (d) Create tracker (IMPORTANT: schema must be a plain JSON value, not a function)
+  const schema = getDefaultSchema()
+
+  const item = await prisma.trackerItem.create({
+    data: {
+      userId: user.id,
+      title: title.trim(),
+      type: 'tracker',
+      schema,
+    },
+    select: {
+      id: true,
+      title: true,
+      createdAt: true,
+      schema: true,
+    },
+  })
+
+  return NextResponse.json(
+    {
+      ok: true,
+      item: {
+        ...item,
+        createdAt: item.createdAt.toISOString(),
+      },
+    },
+    { status: 201 }
+  )
+}

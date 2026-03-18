@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 /* =========================================================
    1) Types
@@ -41,6 +42,7 @@ function formatDate(iso: string) {
    ========================================================= */
 
 export default function UnifiedTodosPage() {
+  const router = useRouter()
   const [items, setItems] = useState<TodoContainer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -147,17 +149,26 @@ async function addTodoContainer() {
           <div>Loading…</div>
         ) : items.length === 0 ? (
           <div style={{ opacity: 0.75 }}>No unified todo containers yet.</div>
-        ) : (
-          <div style={{ display: 'grid', gap: 10 }}>
-            {items.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: '1px solid rgba(0,0,0,0.12)',
-                }}
-              >
+		) : (
+		  <div style={{ display: 'grid', gap: 10 }}>
+		    {items.map((item) => (
+		  <div
+		    key={item.id}
+		    role="button"
+		    tabIndex={0}
+		    onClick={() => router.push(`/app/todos-unified/${item.id}`)}
+		    onKeyDown={(e) => {
+		      if (e.key === 'Enter' || e.key === ' ') {
+		        router.push(`/app/todos-unified/${item.id}`)
+		      }
+		    }}
+		    style={{
+		      padding: 12,
+		      borderRadius: 12,
+		      border: '1px solid rgba(0,0,0,0.12)',
+		      cursor: 'pointer',
+		    }}
+		  >
                 <div style={{ fontWeight: 700 }}>{item.title}</div>
                 <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
                   Type: {item.type}

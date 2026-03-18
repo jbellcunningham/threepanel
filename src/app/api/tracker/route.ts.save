@@ -15,15 +15,11 @@ import { getCurrentUser } from '@/lib/auth'
 import { defaultTrackerSchema } from '@/lib/trackerSchema'
 
 /* 2) Types: request/response shapes for this route */
-type CreateTrackerBody = {
-  title?: string
-  type?: 'tracker' | 'todo' | 'journal'
-}
+
 
 type TrackerListItem = {
   id: string
   title: string
-  type: string
   createdAt: string
   // Later this will be driven by per-tracker settings (which stats to show)
   summary: Record<string, unknown>
@@ -49,33 +45,8 @@ async function safeReadJson<T>(req: Request): Promise<{ ok: true; data: T } | { 
  * - if it's a function -> call it
  * - if it's already an object -> use it
  */
-
-function getDefaultSchema(type: 'tracker' | 'todo' | 'journal'): unknown {
-  if (type === 'todo') {
-    return {
-      version: 1,
-      fields: [
-        { id: 'title', label: 'Title', type: 'text', required: true },
-        { id: 'done', label: 'Done', type: 'boolean', required: true },
-        { id: 'due_at', label: 'Due Date', type: 'date' },
-        { id: 'notes', label: 'Notes', type: 'text' },
-      ],
-    }
-  }
-
-  if (type === 'journal') {
-    return {
-      version: 1,
-      fields: [
-        { id: 'entry_date', label: 'Entry Date', type: 'date', required: true },
-        { id: 'note', label: 'Note', type: 'text', required: true },
-      ],
-    }
-  }
-
-  return typeof defaultTrackerSchema === 'function'
-    ? defaultTrackerSchema()
-    : defaultTrackerSchema
+function getDefaultSchema(): unknown {
+  return typeof defaultTrackerSchema === 'function' ? defaultTrackerSchema() : defaultTrackerSchema
 }
 
 /* 4) Handlers: the API route logic */
@@ -104,7 +75,6 @@ export async function GET() {
   const itemsWithSummary: TrackerListItem[] = items.map((it) => ({
     id: it.id,
     title: it.title,
-    type: it.type,
     createdAt: it.createdAt.toISOString(),
     summary: {
       // For now: we are NOT showing this in the UI (per your note),
@@ -129,11 +99,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 })
   }
 
-	const { title } = parsed.data
-	const type =
-	  parsed.data.type === 'todo' || parsed.data.type === 'journal'
-	    ? parsed.data.type
-	    : 'tracker'
+  const { title } = parsed.data
 
   // (c) Validate inputs
   if (!isNonEmptyString(title)) {
@@ -141,13 +107,13 @@ export async function POST(req: Request) {
   }
 
   // (d) Create tracker (IMPORTANT: schema must be a plain JSON value, not a function)
-  const schema = getDefaultSchema(type)
+  const schema = getDefaultSchema()
 
   const item = await prisma.trackerItem.create({
     data: {
       userId: user.id,
       title: title.trim(),
-      type,
+      type: 'tracker',
       schema,
     },
     select: {

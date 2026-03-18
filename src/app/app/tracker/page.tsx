@@ -100,6 +100,38 @@ export default function TrackerPage() {
      6) Event handlers
      ========================================================= */
 
+  async function addTodoContainer() {
+    const t = title.trim()
+    if (!t) return
+
+    setError(null)
+
+    const res = await fetch('/api/tracker', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: t, type: 'todo' }),
+    })
+
+    const raw = await res.text()
+
+    let data: any = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok || !data?.ok) {
+      setError(data?.error || raw || 'Failed to create todo container')
+      return
+    }
+
+    setTitle('')
+    await load()
+  }
+
+
   async function add() {
     const t = title.trim()
     if (!t) return
@@ -173,6 +205,13 @@ export default function TrackerPage() {
         >
           Add
         </button>
+	<button
+	  onClick={addTodoContainer}
+	  disabled={!canAdd}
+	  style={{ padding: '0 14px', height: 40 }}
+	>
+	  Add Todo Container
+	</button>
       </div>
 
       {error && <div style={{ color: 'crimson', marginTop: 10 }}>{error}</div>}

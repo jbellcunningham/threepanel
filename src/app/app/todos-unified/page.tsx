@@ -135,6 +135,41 @@ async function deleteTodoContainer(itemId: string) {
   await load()
 }
 
+async function renameTodoContainer(item: TodoContainer) {
+  const nextTitle = window.prompt('Rename to-do container', item.title)?.trim()
+
+  if (!nextTitle || nextTitle === item.title) {
+    return
+  }
+
+  setError(null)
+
+  const res = await fetch(`/api/items/${item.id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: nextTitle,
+    }),
+  })
+
+  const raw = await res.text()
+
+  let data: { ok?: boolean; error?: string } | null = null
+  try {
+    data = raw ? JSON.parse(raw) : null
+  } catch {
+    data = null
+  }
+
+  if (!res.ok || !data?.ok) {
+    setError(data?.error || raw || 'Failed to rename todo container')
+    return
+  }
+
+  await load()
+}
+
   /* =========================================================
      5) Effects
      ========================================================= */
@@ -221,6 +256,22 @@ async function deleteTodoContainer(itemId: string) {
                     type="button"
                     title="Open to-do container"
                     onClick={() => router.push(`/app/todos-unified/${item.id}`)}
+                    style={{
+                      height: 32,
+                      width: 32,
+                      borderRadius: 8,
+                      border: '1px solid rgba(0,0,0,0.12)',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    📂
+                  </button>
+
+                  <button
+                    type="button"
+                    title="Rename to-do container"
+                    onClick={() => renameTodoContainer(item)}
                     style={{
                       height: 32,
                       width: 32,

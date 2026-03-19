@@ -77,6 +77,8 @@ export default function UnifiedTodoDetailPage({
   const [entries, setEntries] = useState<TodoEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [newTitle, setNewTitle] = useState('')
+  const [saving, setSaving] = useState(false)
 
   /* =========================================================
      4) Data loaders
@@ -109,6 +111,48 @@ export default function UnifiedTodoDetailPage({
     setEntries(data.entries)
     setLoading(false)
   }
+
+async function addEntry() {
+  const trimmedTitle = newTitle.trim()
+  if (!trimmedTitle || !todoId) return
+
+  setError(null)
+  setSaving(true)
+
+  try {
+    const res = await fetch(`/api/tracker/${todoId}/entries`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        data: {
+          title: trimmedTitle,
+          done: false,
+        },
+      }),
+    })
+
+    const raw = await res.text()
+
+    let data: { ok?: boolean; error?: string } | null = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok || !data?.ok) {
+      setError(data?.error || raw || 'Failed to create to-do entry')
+      return
+    }
+
+    setNewTitle('')
+    await load(todoId)
+  } finally {
+    setSaving(false)
+  }
+}
+
 
   /* =========================================================
      5) Effects
@@ -156,7 +200,23 @@ export default function UnifiedTodoDetailPage({
         </div>
       )}
 
-      <section style={{ marginTop: 18 }}>
+	<div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+	  <input
+	    value={newTitle}
+	    onChange={(e) => setNewTitle(e.target.value)}
+	    placeholder="New to-do entry title"
+	    style={{ flex: 1, padding: '10px 12px' }}
+	  />
+	  <button
+	    onClick={addEntry}
+	    disabled={newTitle.trim().length === 0 || saving}
+	    style={{ padding: '0 14px', height: 40 }}
+	  >
+	    {saving ? 'Adding…' : 'Add Entry'}
+	  </button>
+	</div>
+ 
+     <section style={{ marginTop: 18 }}>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Entries</h2>
 
         {loading ? (

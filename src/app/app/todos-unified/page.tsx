@@ -107,6 +107,34 @@ async function addTodoContainer() {
   await load()
 }
 
+async function deleteTodoContainer(itemId: string) {
+  const confirmed = window.confirm('Delete this to-do container?')
+  if (!confirmed) return
+
+  setError(null)
+
+  const res = await fetch(`/api/items/${itemId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+
+  const raw = await res.text()
+
+  let data: { ok?: boolean; error?: string } | null = null
+  try {
+    data = raw ? JSON.parse(raw) : null
+  } catch {
+    data = null
+  }
+
+  if (!res.ok || !data?.ok) {
+    setError(data?.error || raw || 'Failed to delete todo container')
+    return
+  }
+
+  await load()
+}
+
   /* =========================================================
      5) Effects
      ========================================================= */
@@ -151,30 +179,75 @@ async function addTodoContainer() {
           <div style={{ opacity: 0.75 }}>No unified todo containers yet.</div>
 		) : (
 		  <div style={{ display: 'grid', gap: 10 }}>
-		    {items.map((item) => (
-		  <div
-		    key={item.id}
-		    role="button"
-		    tabIndex={0}
-		    onClick={() => router.push(`/app/todos-unified/${item.id}`)}
-		    onKeyDown={(e) => {
-		      if (e.key === 'Enter' || e.key === ' ') {
-		        router.push(`/app/todos-unified/${item.id}`)
-		      }
-		    }}
-		    style={{
-		      padding: 12,
-		      borderRadius: 12,
-		      border: '1px solid rgba(0,0,0,0.12)',
-		      cursor: 'pointer',
-		    }}
-		  >
-                <div style={{ fontWeight: 700 }}>{item.title}</div>
-                <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
-                  Type: {item.type}
+            {items.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  padding: 12,
+                  borderRadius: 12,
+                  border: '1px solid rgba(0,0,0,0.12)',
+                }}
+              >
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => router.push(`/app/todos-unified/${item.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      router.push(`/app/todos-unified/${item.id}`)
+                    }
+                  }}
+                  style={{
+                    minWidth: 0,
+                    flex: 1,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ fontWeight: 700 }}>{item.title}</div>
+                  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
+                    Type: {item.type}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.7 }}>
+                    Created: {formatDate(item.createdAt)}
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, opacity: 0.7 }}>
-                  Created: {formatDate(item.createdAt)}
+
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    title="Open to-do container"
+                    onClick={() => router.push(`/app/todos-unified/${item.id}`)}
+                    style={{
+                      height: 32,
+                      width: 32,
+                      borderRadius: 8,
+                      border: '1px solid rgba(0,0,0,0.12)',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ✏️
+                  </button>
+
+                  <button
+                    type="button"
+                    title="Delete to-do container"
+                    onClick={() => deleteTodoContainer(item.id)}
+                    style={{
+                      height: 32,
+                      width: 32,
+                      borderRadius: 8,
+                      border: '1px solid rgba(0,0,0,0.12)',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    🗑️
+                  </button>
                 </div>
               </div>
             ))}

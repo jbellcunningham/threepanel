@@ -223,7 +223,7 @@ async function toggleTodoContainerDone(item: TodoContainer) {
 	  <input
 	    value={title}
 	    onChange={(e) => setTitle(e.target.value)}
-	    placeholder="New unified todo container title"
+	    placeholder="Todos"
 	    style={{ flex: 1, padding: '10px 12px' }}
 	  />
 	  <button
@@ -272,7 +272,15 @@ async function toggleTodoContainerDone(item: TodoContainer) {
                     cursor: 'pointer',
                   }}
                 >
-                  <div style={{ fontWeight: 700 }}>{item.title}</div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      textDecoration: item.done ? 'line-through' : 'none',
+                      opacity: item.done ? 0.7 : 1,
+                    }}
+                  >
+                    {item.title}
+                  </div>
                   <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
                     Type: {item.type}
                   </div>

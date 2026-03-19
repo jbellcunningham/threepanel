@@ -11,6 +11,7 @@ type TodoContainer = {
   id: string
   title: string
   type: string
+  done: boolean
   createdAt: string
   schema: unknown
 }
@@ -170,6 +171,78 @@ async function markSelectedDone() {
   await load(todoId)
 }
 
+async function markSelectedOpen() {
+  if (!todoId || selectedEntryIds.length === 0) return
+
+  setError(null)
+
+  for (const entry of entries) {
+    if (!selectedEntryIds.includes(entry.id)) {
+      continue
+    }
+
+    const res = await fetch(`/api/tracker/${todoId}/entries/${entry.id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        data: {
+          ...(entry.data ?? {}),
+          done: false,
+        },
+      }),
+    })
+
+    const raw = await res.text()
+
+    let data: { ok?: boolean; error?: string } | null = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok || !data?.ok) {
+      setError(data?.error || raw || 'Failed to update selected to-do entries')
+      return
+    }
+  }
+
+  await load(todoId)
+}
+
+async function deleteSelectedEntries() {
+  if (!todoId || selectedEntryIds.length === 0) return
+
+  const confirmed = window.confirm('Delete selected to-do entries?')
+  if (!confirmed) return
+
+  setError(null)
+
+  for (const entryId of selectedEntryIds) {
+    const res = await fetch(`/api/tracker/${todoId}/entries/${entryId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+
+    const raw = await res.text()
+
+    let data: { ok?: boolean; error?: string } | null = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok || !data?.ok) {
+      setError(data?.error || raw || 'Failed to delete selected to-do entries')
+      return
+    }
+  }
+
+  await load(todoId)
+}
+
 async function addEntry() {
   const trimmedTitle = newTitle.trim()
   if (!trimmedTitle || !todoId) return
@@ -311,11 +384,16 @@ async function deleteEntry(entryId: string) {
         <h1 style={{ marginTop: 8, marginBottom: 6 }}>
           {item ? item.title : 'Unified To-Do'}
         </h1>
-        {item && (
-          <div style={{ fontSize: 12, opacity: 0.7 }}>
-            Created: {formatDate(item.createdAt)}
-          </div>
-        )}
+          {item && (
+            <>
+              <div style={{ fontSize: 12, opacity: 0.7 }}>
+                Created: {formatDate(item.createdAt)}
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.7 }}>
+                Status: {item.done ? 'Done' : 'Open'}
+              </div>
+            </>
+          )}
       </div>
 
       {error && (
@@ -347,13 +425,13 @@ async function deleteEntry(entryId: string) {
             style={{
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'space-between',
               gap: 12,
               marginBottom: 12,
-              fontSize: 13,
               flexWrap: 'wrap',
             }}
           >
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
               <input
                 type="checkbox"
                 checked={
@@ -365,17 +443,58 @@ async function deleteEntry(entryId: string) {
               <span>Select all</span>
             </label>
 
-            <button
-              type="button"
-              onClick={markSelectedDone}
-              disabled={selectedEntryIds.length === 0}
-              style={{
-                height: 32,
-                padding: '0 12px',
-              }}
-            >
-              Mark selected done
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                title="Mark selected open"
+                onClick={markSelectedOpen}
+                disabled={selectedEntryIds.length === 0}
+                style={{
+                  height: 32,
+                  width: 32,
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                ↩️
+              </button>
+
+              <button
+                type="button"
+                title="Mark selected done"
+                onClick={markSelectedDone}
+                disabled={selectedEntryIds.length === 0}
+                style={{
+                  height: 32,
+                  width: 32,
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                ✔️
+              </button>
+
+              <button
+                type="button"
+                title="Delete selected entries"
+                onClick={deleteSelectedEntries}
+                disabled={selectedEntryIds.length === 0}
+                style={{
+                  height: 32,
+                  width: 32,
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                🗑️
+              </button>
+            </div>
           </div>
  
         {loading ? (

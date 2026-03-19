@@ -27,6 +27,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
       id: true,
       title: true,
       type: true,
+      done: true,
       createdAt: true,
       schema: true,
     },

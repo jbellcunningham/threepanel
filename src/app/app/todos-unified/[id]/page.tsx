@@ -153,6 +153,72 @@ async function addEntry() {
   }
 }
 
+async function toggleEntry(entry: TodoEntry) {
+  if (!todoId) return
+
+  setError(null)
+
+  const currentDone = entry.data?.done === true
+
+  const res = await fetch(`/api/tracker/${todoId}/entries/${entry.id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      data: {
+        ...(entry.data ?? {}),
+        done: !currentDone,
+      },
+    }),
+  })
+
+  const raw = await res.text()
+
+  let data: { ok?: boolean; error?: string } | null = null
+  try {
+    data = raw ? JSON.parse(raw) : null
+  } catch {
+    data = null
+  }
+
+  if (!res.ok || !data?.ok) {
+    setError(data?.error || raw || 'Failed to update to-do entry')
+    return
+  }
+
+  await load(todoId)
+}
+
+async function deleteEntry(entryId: string) {
+  if (!todoId) return
+
+  const confirmed = window.confirm('Delete this to-do entry?')
+  if (!confirmed) return
+
+  setError(null)
+
+  const res = await fetch(`/api/tracker/${todoId}/entries/${entryId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+
+  const raw = await res.text()
+
+  let data: { ok?: boolean; error?: string } | null = null
+  try {
+    data = raw ? JSON.parse(raw) : null
+  } catch {
+    data = null
+  }
+
+  if (!res.ok || !data?.ok) {
+    setError(data?.error || raw || 'Failed to delete to-do entry')
+    return
+  }
+
+  await load(todoId)
+}
+
 
   /* =========================================================
      5) Effects
@@ -242,12 +308,54 @@ async function addEntry() {
                     gap: 12,
                   }}
                 >
-                  <div style={{ fontWeight: 700 }}>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      textDecoration: getEntryDone(entry) ? 'line-through' : 'none',
+                      opacity: getEntryDone(entry) ? 0.7 : 1,
+                    }}
+                  >
                     {getEntryTitle(entry)}
                   </div>
 
-                  <div style={{ flexShrink: 0 }}>
-                    {getEntryDone(entry) ? '✅' : '⬜'}
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      title={getEntryDone(entry) ? 'Mark Open' : 'Mark Done'}
+                      onClick={() => toggleEntry(entry)}
+                      style={{
+                        height: 32,
+                        width: 32,
+                        borderRadius: 8,
+                        border: '1px solid rgba(0,0,0,0.12)',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {getEntryDone(entry) ? '↩️' : '✔️'}
+                    </button>
+
+                    <button
+                      type="button"
+                      title="Delete entry"
+                      onClick={() => deleteEntry(entry.id)}
+                      style={{
+                        height: 32,
+                        width: 32,
+                        borderRadius: 8,
+                        border: '1px solid rgba(0,0,0,0.12)',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      🗑️
+                    </button>
                   </div>
                 </div>
 

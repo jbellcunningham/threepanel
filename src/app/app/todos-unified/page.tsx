@@ -11,6 +11,7 @@ type TodoContainer = {
   id: string
   title: string
   type: string
+  done: boolean
   createdAt: string
   schema: unknown
 }
@@ -170,6 +171,35 @@ async function renameTodoContainer(item: TodoContainer) {
   await load()
 }
 
+async function toggleTodoContainerDone(item: TodoContainer) {
+  setError(null)
+
+  const res = await fetch(`/api/items/${item.id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      done: !item.done,
+    }),
+  })
+
+  const raw = await res.text()
+
+  let data: { ok?: boolean; error?: string } | null = null
+  try {
+    data = raw ? JSON.parse(raw) : null
+  } catch {
+    data = null
+  }
+
+  if (!res.ok || !data?.ok) {
+    setError(data?.error || raw || 'Failed to update todo container')
+    return
+  }
+
+  await load()
+}
+
   /* =========================================================
      5) Effects
      ========================================================= */
@@ -252,6 +282,22 @@ async function renameTodoContainer(item: TodoContainer) {
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    title={item.done ? 'Mark container open' : 'Mark container done'}
+                    onClick={() => toggleTodoContainerDone(item)}
+                    style={{
+                      height: 32,
+                      width: 32,
+                      borderRadius: 8,
+                      border: '1px solid rgba(0,0,0,0.12)',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {item.done ? '↩️' : '✔️'}
+                  </button>
+
                   <button
                     type="button"
                     title="Open to-do container"

@@ -43,6 +43,7 @@ model TrackerItem {
   notes     String?
   // Schema-driven tracker: user-defined field definitions live here
   schema   Json?
+  done     Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

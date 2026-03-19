@@ -6,6 +6,7 @@ type TodoContainerListItem = {
   id: string
   title: string
   type: string
+  done: boolean
   createdAt: string
   schema: unknown
 }
@@ -29,6 +30,7 @@ export async function GET() {
       id: true,
       title: true,
       type: true,
+      done: true,
       createdAt: true,
       schema: true,
     },
@@ -38,6 +40,7 @@ export async function GET() {
     id: item.id,
     title: item.title,
     type: item.type,
+    done: item.done,
     createdAt: item.createdAt.toISOString(),
     schema: item.schema ?? null,
   }))

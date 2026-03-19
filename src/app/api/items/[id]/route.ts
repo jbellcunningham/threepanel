@@ -10,6 +10,7 @@ type RouteContext = {
 
 type UpdateItemBody = {
   title?: string
+  done?: boolean
 }
 
 export async function DELETE(_req: Request, ctx: RouteContext) {
@@ -60,9 +61,13 @@ export async function PATCH(req: Request, ctx: RouteContext) {
 
   const body = (await req.json().catch(() => null)) as UpdateItemBody | null
   const title = body?.title?.trim()
+  const done = body?.done
 
-  if (!title) {
-    return NextResponse.json({ ok: false, error: 'Title is required' }, { status: 400 })
+  if (!title && typeof done !== 'boolean') {
+    return NextResponse.json(
+      { ok: false, error: 'At least one valid field is required' },
+      { status: 400 }
+    )
   }
 
   const item = await prisma.trackerItem.findFirst({
@@ -88,11 +93,13 @@ export async function PATCH(req: Request, ctx: RouteContext) {
       id: true,
       title: true,
       type: true,
+      done: true,
       createdAt: true,
       updatedAt: true,
     },
     data: {
-      title,
+      ...(title ? { title } : {}),
+      ...(typeof done === 'boolean' ? { done } : {}),
     },
   })
 

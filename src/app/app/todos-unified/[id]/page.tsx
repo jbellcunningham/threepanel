@@ -79,6 +79,7 @@ export default function UnifiedTodoDetailPage({
   const [error, setError] = useState<string | null>(null)
   const [newTitle, setNewTitle] = useState('')
   const [saving, setSaving] = useState(false)
+  const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([])
 
   /* =========================================================
      4) Data loaders
@@ -109,8 +110,65 @@ export default function UnifiedTodoDetailPage({
 
     setItem(data.item)
     setEntries(data.entries)
+    setSelectedEntryIds([])
     setLoading(false)
   }
+
+function toggleEntrySelection(entryId: string) {
+  setSelectedEntryIds((current) =>
+    current.includes(entryId)
+      ? current.filter((id) => id !== entryId)
+      : [...current, entryId]
+  )
+}
+
+function toggleSelectAll() {
+  const allIds = entries.map((entry) => entry.id)
+  const allSelected =
+    allIds.length > 0 && allIds.every((id) => selectedEntryIds.includes(id))
+
+  setSelectedEntryIds(allSelected ? [] : allIds)
+}
+
+async function markSelectedDone() {
+  if (!todoId || selectedEntryIds.length === 0) return
+
+  setError(null)
+
+  for (const entry of entries) {
+    if (!selectedEntryIds.includes(entry.id)) {
+      continue
+    }
+
+    const res = await fetch(`/api/tracker/${todoId}/entries/${entry.id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        data: {
+          ...(entry.data ?? {}),
+          done: true,
+        },
+      }),
+    })
+
+    const raw = await res.text()
+
+    let data: { ok?: boolean; error?: string } | null = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok || !data?.ok) {
+      setError(data?.error || raw || 'Failed to update selected to-do entries')
+      return
+    }
+  }
+
+  await load(todoId)
+}
 
 async function addEntry() {
   const trimmedTitle = newTitle.trim()
@@ -285,6 +343,41 @@ async function deleteEntry(entryId: string) {
      <section style={{ marginTop: 18 }}>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Entries</h2>
 
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              marginBottom: 12,
+              fontSize: 13,
+              flexWrap: 'wrap',
+            }}
+          >
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={
+                  entries.length > 0 &&
+                  entries.every((entry) => selectedEntryIds.includes(entry.id))
+                }
+                onChange={toggleSelectAll}
+              />
+              <span>Select all</span>
+            </label>
+
+            <button
+              type="button"
+              onClick={markSelectedDone}
+              disabled={selectedEntryIds.length === 0}
+              style={{
+                height: 32,
+                padding: '0 12px',
+              }}
+            >
+              Mark selected done
+            </button>
+          </div>
+ 
         {loading ? (
           <div>Loading…</div>
         ) : entries.length === 0 ? (
@@ -308,14 +401,23 @@ async function deleteEntry(entryId: string) {
                     gap: 12,
                   }}
                 >
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      textDecoration: getEntryDone(entry) ? 'line-through' : 'none',
-                      opacity: getEntryDone(entry) ? 0.7 : 1,
-                    }}
-                  >
-                    {getEntryTitle(entry)}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1 }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedEntryIds.includes(entry.id)}
+                      onChange={() => toggleEntrySelection(entry.id)}
+                      style={{ marginTop: 2 }}
+                    />
+
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        textDecoration: getEntryDone(entry) ? 'line-through' : 'none',
+                        opacity: getEntryDone(entry) ? 0.7 : 1,
+                      }}
+                    >
+                      {getEntryTitle(entry)}
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>

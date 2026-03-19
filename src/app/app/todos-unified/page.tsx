@@ -214,10 +214,10 @@ async function toggleTodoContainerDone(item: TodoContainer) {
 
   return (
     <main style={{ maxWidth: 900 }}>
-      <h1 style={{ marginTop: 0 }}>Unified To-Do</h1>
-      <p style={{ opacity: 0.75, marginTop: 6 }}>
-        This page lists To-Do containers stored in the unified TrackerItem table.
-      </p>
+      <h1 style={{ marginTop: 0 }}>To-Do</h1>
+        <p style={{ opacity: 0.75, marginTop: 6 }}>
+          Organize your to-do containers and manage their task lists.
+        </p>
 
 	<div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
 	  <input

@@ -379,10 +379,10 @@ async function deleteEntry(entryId: string) {
     <main style={{ maxWidth: 900 }}>
       <div>
         <Link href="/app/todos-unified" style={{ textDecoration: 'none' }}>
-          ← Back to Unified To-Do
+          ← Back to To-Do
         </Link>
         <h1 style={{ marginTop: 8, marginBottom: 6 }}>
-          {item ? item.title : 'Unified To-Do'}
+          {item ? item.title : 'To-Do'}
         </h1>
           {item && (
             <>

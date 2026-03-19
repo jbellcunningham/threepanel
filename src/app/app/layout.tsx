@@ -5,8 +5,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 const PANELS = [
-  { slug: 'todos', title: 'To-Do' },
-  { slug: 'todos-unified', title: 'To-Do (Unified)' },
+  { slug: 'todos-unified', title: 'To-Do' },
   { slug: 'tracker', title: 'Tracker' },
   { slug: 'journal', title: 'Journal' },
   { slug: 'settings', title: 'Settings' },

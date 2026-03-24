@@ -255,6 +255,11 @@ function formatStatsDate(value: string | null | undefined): string {
 }
 
 function formatChartDateLabel(value: string, showTime: boolean): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-')
+    return `${Number(month)}/${Number(day)}/${year}`
+  }
+
   const date = new Date(value)
 
   const month = date.getMonth() + 1

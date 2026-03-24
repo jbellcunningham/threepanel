@@ -265,25 +265,30 @@ export async function GET(_request: Request, context: RouteContext) {
 	    // Try date value from the entry's own data first (if a date field exists)
 	    let pointDateIso: string;
 
-	    if (dateFieldId) {
-	      try {
-	        const rawDate = (entry.data as any)?.[dateFieldId];
-	        const parsed = rawDate ? new Date(rawDate) : null;
+      if (dateFieldId) {
+        try {
+          const rawDate = (entry.data as any)?.[dateFieldId]
 
-	        if (parsed && !isNaN(parsed.getTime())) {
-	          pointDateIso = parsed.toISOString();
-	        } else {
-	          // fallback to createdAt if rawDate missing / invalid
-	          pointDateIso = entry.createdAt.toISOString();
-	        }
-	      } catch {
-	        // In case of any unexpected shape, fallback to createdAt
-	        pointDateIso = entry.createdAt.toISOString();
-	      }
-	    } else {
-	      // No date field in schema — always use createdAt
-	      pointDateIso = entry.createdAt.toISOString();
-	    }
+          if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+            pointDateIso = rawDate
+          } else {
+            const parsed = rawDate ? new Date(rawDate) : null
+
+            if (parsed && !isNaN(parsed.getTime())) {
+              pointDateIso = parsed.toISOString()
+            } else {
+              // fallback to createdAt if rawDate missing / invalid
+              pointDateIso = entry.createdAt.toISOString()
+            }
+          }
+        } catch {
+          // In case of any unexpected shape, fallback to createdAt
+          pointDateIso = entry.createdAt.toISOString()
+        }
+      } else {
+        // No date field in schema — always use createdAt
+        pointDateIso = entry.createdAt.toISOString()
+      }
 
 	    const numericValue = toNumber(getEntryFieldValue(entry.data, field.id));
 

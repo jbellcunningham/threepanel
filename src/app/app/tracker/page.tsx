@@ -193,9 +193,9 @@ export default function TrackerPage() {
 
   return (
     <main style={{ maxWidth: 900 }}>
-      <h1 style={{ marginTop: 0 }}>Tracker</h1>
+      <h1 style={{ marginTop: 0 }}>Containers</h1>
       <p style={{ opacity: 0.75, marginTop: 6 }}>
-        Create containers from built-in templates or start a new custom type.
+        Create and manage containers from built-in templates or start a new custom type.
       </p>
 
       <section

@@ -1,23 +1,36 @@
 /**
- * File: src/app/api/tracker/route.ts
+ * FILE: /opt/threepanel/app/threepanel/src/app/api/tracker/route.ts
  *
- * Code order (always):
- * 1) Imports
- * 2) Types
- * 3) Helpers
- * 4) Handlers (GET, POST)
+ * PURPOSE:
+ * - Lists all tracker-style containers for the logged-in user
+ * - Creates new containers from built-in templates or custom types
+ *
+ * ARCHITECTURE ROLE:
+ * - Unified container creation entry point
+ * - Seeds default schema for built-in template types
+ * - Supports future custom schema workflows
  */
 
-/* 1) Imports: framework + app services */
+/* =========================================================
+   1) Imports
+   ========================================================= */
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { defaultTrackerSchema } from '@/lib/trackerSchema'
 
-/* 2) Types: request/response shapes for this route */
+/* =========================================================
+   2) Types
+   ========================================================= */
+
+type BuiltInType = 'tracker' | 'todo' | 'journal'
+
 type CreateTrackerBody = {
   title?: string
-  type?: 'tracker' | 'todo' | 'journal'
+  type?: string
+  templateType?: BuiltInType
+  customType?: string
 }
 
 type TrackerListItem = {
@@ -25,11 +38,13 @@ type TrackerListItem = {
   title: string
   type: string
   createdAt: string
-  // Later this will be driven by per-tracker settings (which stats to show)
   summary: Record<string, unknown>
 }
 
-/* 3) Helpers: parsing, validation, normalization */
+/* =========================================================
+   3) Helpers
+   ========================================================= */
+
 function isNonEmptyString(v: unknown): v is string {
   return typeof v === 'string' && v.trim().length > 0
 }
@@ -43,14 +58,7 @@ async function safeReadJson<T>(req: Request): Promise<{ ok: true; data: T } | { 
   }
 }
 
-/**
- * Prisma Json fields must receive JSON-serializable values.
- * We normalize defaultTrackerSchema to a plain object:
- * - if it's a function -> call it
- * - if it's already an object -> use it
- */
-
-function getDefaultSchema(type: 'tracker' | 'todo' | 'journal'): unknown {
+function getDefaultSchema(type: BuiltInType): unknown {
   if (type === 'todo') {
     return {
       version: 1,
@@ -58,8 +66,8 @@ function getDefaultSchema(type: 'tracker' | 'todo' | 'journal'): unknown {
         { id: 'title', label: 'Title', type: 'text', required: true },
         { id: 'done', label: 'Done', type: 'boolean', required: true },
         { id: 'due_at', label: 'Due Date', type: 'date' },
-        { id: 'notes', label: 'Notes', type: 'text' },
-      ],
+        { id: 'notes', label: 'Notes', type: 'text' }
+      ]
     }
   }
 
@@ -67,9 +75,10 @@ function getDefaultSchema(type: 'tracker' | 'todo' | 'journal'): unknown {
     return {
       version: 1,
       fields: [
-        { id: 'entry_date', label: 'Entry Date', type: 'date', required: true },
-        { id: 'note', label: 'Note', type: 'text', required: true },
-      ],
+        { id: 'recordedDate', label: 'Recorded Date', type: 'date', required: true },
+        { id: 'location', label: 'Location', type: 'dropdown' },
+        { id: 'textEntry', label: 'Text Entry', type: 'text', required: true }
+      ]
     }
   }
 
@@ -78,39 +87,83 @@ function getDefaultSchema(type: 'tracker' | 'todo' | 'journal'): unknown {
     : defaultTrackerSchema
 }
 
-/* 4) Handlers: the API route logic */
+function normalizeType(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, '-')
+}
+
+function resolveContainerType(body: CreateTrackerBody): string | null {
+  if (body.templateType === 'tracker' || body.templateType === 'todo' || body.templateType === 'journal') {
+    return body.templateType
+  }
+
+  if (isNonEmptyString(body.customType)) {
+    return normalizeType(body.customType)
+  }
+
+  if (body.type === 'tracker' || body.type === 'todo' || body.type === 'journal') {
+    return body.type
+  }
+
+  return 'tracker'
+}
+
+function resolveSchema(body: CreateTrackerBody, resolvedType: string): unknown {
+  if (body.templateType === 'tracker' || body.templateType === 'todo' || body.templateType === 'journal') {
+    return getDefaultSchema(body.templateType)
+  }
+
+  if (resolvedType === 'tracker' || resolvedType === 'todo' || resolvedType === 'journal') {
+    return getDefaultSchema(resolvedType)
+  }
+
+  return {
+    version: 1,
+    fields: []
+  }
+}
+
+/* =========================================================
+   4) Handlers
+   ========================================================= */
+
 export async function GET() {
   // (a) Auth
   const user = await getCurrentUser()
+
   if (!user) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   }
 
   // (b) Fetch list
   const items = await prisma.trackerItem.findMany({
-    where: { userId: user.id, type: 'tracker', },
-    orderBy: { createdAt: 'desc' },
+    where: {
+      userId: user.id
+    },
+    orderBy: {
+      createdAt: 'desc'
+    },
     select: {
       id: true,
       title: true,
       type: true,
       createdAt: true,
-      // We only need a count-like signal for now (future: configurable stats)
-      entries: { select: { id: true } },
-    },
+      entries: {
+        select: {
+          id: true
+        }
+      }
+    }
   })
 
-  // (c) Shape response (keep stable + forward-compatible)
+  // (c) Shape response
   const itemsWithSummary: TrackerListItem[] = items.map((it) => ({
     id: it.id,
     title: it.title,
     type: it.type,
     createdAt: it.createdAt.toISOString(),
     summary: {
-      // For now: we are NOT showing this in the UI (per your note),
-      // but leaving it available for later.
-      entryCount: it.entries.length,
-    },
+      entryCount: it.entries.length
+    }
   }))
 
   return NextResponse.json({ ok: true, items: itemsWithSummary })
@@ -119,43 +172,47 @@ export async function GET() {
 export async function POST(req: Request) {
   // (a) Auth
   const user = await getCurrentUser()
+
   if (!user) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   }
 
   // (b) Parse body
   const parsed = await safeReadJson<CreateTrackerBody>(req)
+
   if (!parsed.ok) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 })
   }
 
-	const { title } = parsed.data
-	const type =
-	  parsed.data.type === 'todo' || parsed.data.type === 'journal'
-	    ? parsed.data.type
-	    : 'tracker'
+  const { title } = parsed.data
+  const resolvedType = resolveContainerType(parsed.data)
 
   // (c) Validate inputs
   if (!isNonEmptyString(title)) {
     return NextResponse.json({ ok: false, error: 'Title is required' }, { status: 400 })
   }
 
-  // (d) Create tracker (IMPORTANT: schema must be a plain JSON value, not a function)
-  const schema = getDefaultSchema(type)
+  if (!resolvedType) {
+    return NextResponse.json({ ok: false, error: 'Type is required' }, { status: 400 })
+  }
+
+  // (d) Create container
+  const schema = resolveSchema(parsed.data, resolvedType)
 
   const item = await prisma.trackerItem.create({
     data: {
       userId: user.id,
       title: title.trim(),
-      type,
-      schema,
+      type: resolvedType,
+      schema
     },
     select: {
       id: true,
       title: true,
+      type: true,
       createdAt: true,
-      schema: true,
-    },
+      schema: true
+    }
   })
 
   return NextResponse.json(
@@ -163,8 +220,8 @@ export async function POST(req: Request) {
       ok: true,
       item: {
         ...item,
-        createdAt: item.createdAt.toISOString(),
-      },
+        createdAt: item.createdAt.toISOString()
+      }
     },
     { status: 201 }
   )

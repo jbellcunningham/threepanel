@@ -62,6 +62,16 @@ function getTrackerIdFromPathname(pathname: string) {
   return parts[parts.length - 2] || ''
 }
 
+function getContainerLabel(type?: string) {
+  if (!type) return 'Container'
+
+  if (type === 'tracker') return 'Tracker'
+  if (type === 'todo') return 'Todo'
+  if (type === 'journal') return 'Journal'
+
+  return type
+}
+
 function slugifyFieldId(label: string) {
   return label
     .trim()
@@ -302,10 +312,10 @@ export default function TrackerSettingsPage() {
   if (!trackerId) {
     return (
       <main style={{ maxWidth: 900 }}>
-        <h1 style={{ marginTop: 0 }}>Tracker Settings</h1>
-        <div style={{ color: 'crimson' }}>Missing tracker id in route.</div>
+        <h1 style={{ marginTop: 0 }}>Container Settings</h1>
+        <div style={{ color: 'crimson' }}>Missing container id in route.</div>
         <div style={{ marginTop: 10 }}>
-          <Link href="/app/tracker">← Back to Tracker</Link>
+          <Link href="/app/tracker">← Back to Containers</Link>
         </div>
       </main>
     )
@@ -315,9 +325,11 @@ export default function TrackerSettingsPage() {
     <main style={{ maxWidth: 900 }}>
       <div>
         <Link href={`/app/tracker/${trackerId}`} style={{ textDecoration: 'none' }}>
-          ← Back to Tracker
+          ← Back to Container
         </Link>
-        <h1 style={{ marginTop: 8, marginBottom: 6 }}>Tracker Settings</h1>
+        <h1 style={{ marginTop: 8, marginBottom: 6 }}>
+          {item ? `${getContainerLabel(item.type)} Settings` : 'Container Settings'}
+        </h1>
         {item && (
           <div style={{ fontSize: 12, opacity: 0.7 }}>
             Created: {formatDate(item.createdAt)}
@@ -340,18 +352,36 @@ export default function TrackerSettingsPage() {
           >
             <h2 style={{ marginTop: 0, fontSize: 16 }}>Tracker</h2>
 
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontWeight: 600, fontSize: 13 }}>Title</label>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                style={{
-                  height: 36,
-                  padding: '0 10px',
-                  borderRadius: 8,
-                  border: '1px solid rgba(0,0,0,0.18)',
-                }}
-              />
+            <div style={{ display: 'grid', gap: 12 }}>
+              <div style={{ display: 'grid', gap: 6 }}>
+                <label style={{ fontWeight: 600, fontSize: 13 }}>Title</label>
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  style={{
+                    height: 36,
+                    padding: '0 10px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(0,0,0,0.18)',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gap: 6 }}>
+                <label style={{ fontWeight: 600, fontSize: 13 }}>Type</label>
+                <input
+                  value={item?.type || ''}
+                  readOnly
+                  style={{
+                    height: 36,
+                    padding: '0 10px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(0,0,0,0.18)',
+                    background: 'rgba(0,0,0,0.04)',
+                    color: 'rgba(0,0,0,0.75)',
+                  }}
+                />
+              </div>
             </div>
           </section>
 
@@ -519,7 +549,7 @@ export default function TrackerSettingsPage() {
                 border: '1px solid rgba(180,0,0,0.4)',
               }}
             >
-              Delete tracker
+              Delete container
             </button>
           </section>
 

@@ -143,6 +143,16 @@ function getTrackerIdFromPathname(pathname: string) {
   return parts[parts.length - 1] || ''
 }
 
+function getContainerLabel(type?: string) {
+  if (!type) return 'Container'
+
+  if (type === 'tracker') return 'Tracker'
+  if (type === 'todo') return 'Todo'
+  if (type === 'journal') return 'Journal'
+
+  return type
+}
+
 /**
  * Creates a fresh entry form object from the tracker schema.
  * Date fields default to today.
@@ -575,10 +585,10 @@ async function loadStats() {
   if (!trackerId) {
     return (
       <main style={{ maxWidth: 900 }}>
-        <h1 style={{ marginTop: 0 }}>Tracker</h1>
-        <div style={{ color: 'crimson' }}>Missing tracker id in route.</div>
+        <h1 style={{ marginTop: 0 }}>Container</h1>
+        <div style={{ color: 'crimson' }}>Missing container id in route.</div>
         <div style={{ marginTop: 10 }}>
-          <Link href="/app/tracker">← Back to Tracker</Link>
+          <Link href="/app/tracker">← Back to Containers</Link>
         </div>
       </main>
     )
@@ -589,15 +599,20 @@ async function loadStats() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <div>
           <Link href="/app/tracker" style={{ textDecoration: 'none' }}>
-            ← Back to Tracker
+            ← Back to Containers
           </Link>
           <h1 style={{ marginTop: 8, marginBottom: 6 }}>
-            {item ? item.title : 'Tracker'}
+            {item ? item.title : 'Container'}
           </h1>
           {item && (
-            <div style={{ fontSize: 12, opacity: 0.7 }}>
-              Created: {formatDate(item.createdAt)}
-            </div>
+            <>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 2 }}>
+                Type: {getContainerLabel(item.type)}
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.7 }}>
+                Created: {formatDate(item.createdAt)}
+              </div>
+            </>
           )}
         </div>
       </div>

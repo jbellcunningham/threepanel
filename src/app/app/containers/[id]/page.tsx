@@ -394,14 +394,18 @@ async function loadStats() {
     });
 
     if (!response.ok) {
-      throw new Error("Failed to load stats");
+      setStats(null)
+      setStatsError(null)
+      return
     }
 
-    const data: TrackerStats = await response.json();
-    setStats(data);
+    const data: TrackerStats = await response.json()
+    setStats(data)
+
   } catch (error) {
-    console.error("Failed to load stats:", error);
-    setStatsError("Could not load statistics.");
+    console.error('Failed to load stats:', error)
+    setStats(null)
+    setStatsError(null)
   } finally {
     setStatsLoading(false);
   }
@@ -573,7 +577,7 @@ async function loadStats() {
 
   useEffect(() => {
     if (!containerId) return;
-  
+
     load();
     loadStats();
   }, [containerId]);
@@ -734,21 +738,21 @@ async function loadStats() {
                  </div>
                )}
                {/* Numeric field statistics */}
-		{Object.entries(stats.fields).map(([fieldId, field]) => {
-		  if (field.type !== 'number') {
-		    return null
-		  }
+                {Object.entries(stats.fields).map(([fieldId, field]) => {
+                  if (field.type !== 'number') {
+                    return null
+                  }
 
-		  const dateCounts: Record<string, number> = {}
+                  const dateCounts: Record<string, number> = {}
 
-		  if (stats.timeSeries[fieldId]) {
-		    stats.timeSeries[fieldId].forEach((p) => {
-		      const key = new Date(p.date).toISOString().slice(0, 10)
-		      dateCounts[key] = (dateCounts[key] || 0) + 1
-		    })
-		  }
+                  if (stats.timeSeries[fieldId]) {
+                    stats.timeSeries[fieldId].forEach((p) => {
+                      const key = new Date(p.date).toISOString().slice(0, 10)
+                      dateCounts[key] = (dateCounts[key] || 0) + 1
+                    })
+                  }
 
-		  return (
+                  return (
                    <div
                      key={fieldId}
                      style={{
@@ -760,7 +764,7 @@ async function loadStats() {
                      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>
                        {field.label}
                      </div>
-           
+
                      <div style={{ display: 'grid', gap: 4, fontSize: 13 }}>
                        <div>Count: {formatStatsValue(field.count)}</div>
                        <div>Average: {formatStatsValue(field.avg)}</div>
@@ -768,52 +772,52 @@ async function loadStats() {
                        <div>Max: {formatStatsValue(field.max)}</div>
                        <div>Latest: {formatStatsValue(field.latest)}</div>
                      </div>
-			{stats.timeSeries[fieldId] && stats.timeSeries[fieldId].length > 0 && (
-			  <div style={{ marginTop: 10 }}>
-			    <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>
+                        {stats.timeSeries[fieldId] && stats.timeSeries[fieldId].length > 0 && (
+                          <div style={{ marginTop: 10 }}>
+                            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>
                               Recorded Trend
-			    </div>
+                            </div>
 
-			    <div style={{ display: 'grid', gap: 6 }}>
-			      {stats.timeSeries[fieldId].map((point, index) => (
-			        <div key={index} style={{ display: 'grid', gap: 2 }}>
-			          <div
-			            style={{
-			              display: 'flex',
-			              justifyContent: 'space-between',
-			              fontSize: 12,
-			            }}
-			          >
-					<span>
-					  {formatChartDateLabel(
-					    point.date,
-					    dateCounts[new Date(point.date).toISOString().slice(0, 10)] > 1
-					  )}
-					</span>
-			            <span>{formatStatsValue(point.value)}</span>
-			          </div>
+                            <div style={{ display: 'grid', gap: 6 }}>
+                              {stats.timeSeries[fieldId].map((point, index) => (
+                                <div key={index} style={{ display: 'grid', gap: 2 }}>
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      fontSize: 12,
+                                    }}
+                                  >
+                                        <span>
+                                          {formatChartDateLabel(
+                                            point.date,
+                                            dateCounts[new Date(point.date).toISOString().slice(0, 10)] > 1
+                                          )}
+                                        </span>
+                                    <span>{formatStatsValue(point.value)}</span>
+                                  </div>
 
-			          <div
-			            style={{
-			              height: 8,
-			              borderRadius: 999,
-			              background: 'rgba(0,0,0,0.08)',
-			              overflow: 'hidden',
-			            }}
-			          >
-			            <div
-			              style={{
+                                  <div
+                                    style={{
+                                      height: 8,
+                                      borderRadius: 999,
+                                      background: 'rgba(0,0,0,0.08)',
+                                      overflow: 'hidden',
+                                    }}
+                                  >
+                                    <div
+                                      style={{
                                         width: `${field.max && field.max > 0 ? Math.max((point.value / field.max) * 100, 8) : 0}%`,
-			                height: '100%',
-			                background: 'rgba(0,0,0,0.45)',
-			              }}
-			            />
-			          </div>
-			        </div>
-			      ))}
-			    </div>
-			  </div>
-			)}
+                                        height: '100%',
+                                        background: 'rgba(0,0,0,0.45)',
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                    </div>
                  )
                })}
@@ -868,7 +872,7 @@ async function loadStats() {
                  if (field.type !== 'boolean') {
                    return null
                  }
-               
+
                  return (
                    <div
                      key={fieldId}
@@ -881,7 +885,7 @@ async function loadStats() {
                      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>
                        {field.label}
                      </div>
-               
+
                      <div style={{ display: 'grid', gap: 4, fontSize: 13 }}>
                        <div>Total Values: {formatStatsValue(field.count)}</div>
                        <div>True: {formatStatsValue(field.trueCount)}</div>

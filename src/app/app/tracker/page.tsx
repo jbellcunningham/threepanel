@@ -171,12 +171,12 @@ export default function TrackerPage() {
     setCreating(false)
   }
 
-  function openTracker(id: string) {
-    router.push(`/app/tracker/${id}`)
+  function openContainer(id: string) {
+    router.push(`/app/containers/${id}`)
   }
 
-  function openTrackerSettings(id: string) {
-    router.push(`/app/tracker/${id}/settings`)
+  function openContainerSettings(id: string) {
+    router.push(`/app/containers/${id}/settings`)
   }
 
   /* =========================================================
@@ -289,9 +289,9 @@ export default function TrackerPage() {
                 key={it.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => openTracker(it.id)}
+                onClick={() => openContainer(it.id)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') openTracker(it.id)
+                  if (e.key === 'Enter' || e.key === ' ') openContainer(it.id)
                 }}
                 style={{
                   display: 'flex',
@@ -326,7 +326,7 @@ export default function TrackerPage() {
                     title="Open tracker entries"
                     onClick={(e) => {
                       e.stopPropagation()
-                      openTracker(it.id)
+                      openContainer(it.id)
                     }}
                     style={{
                       height: 32,
@@ -345,7 +345,7 @@ export default function TrackerPage() {
                     title="Tracker settings"
                     onClick={(e) => {
                       e.stopPropagation()
-                      openTrackerSettings(it.id)
+                      openContainerSettings(it.id)
                     }}
                     style={{
                       height: 32,

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * FILE: /app/app/tracker/[id]/settings/page.tsx
+ * FILE: /app/app/containers/[id]/settings/page.tsx
  *
  * PURPOSE:
  * - Edit one tracker's schema
@@ -324,7 +324,7 @@ export default function TrackerSettingsPage() {
   return (
     <main style={{ maxWidth: 900 }}>
       <div>
-        <Link href={`/app/tracker/${containerId}`} style={{ textDecoration: 'none' }}>
+        <Link href={`/app/containers/${containerId}`} style={{ textDecoration: 'none' }}>
           ← Back to Container
         </Link>
         <h1 style={{ marginTop: 8, marginBottom: 6 }}>

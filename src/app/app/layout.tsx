@@ -66,7 +66,7 @@ useEffect(() => {
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {PANELS.map((p) => (
             <Link
-              key={p.slug}
+              key={p.href}
               href={p.href}
               style={{
                 padding: '10px 12px',

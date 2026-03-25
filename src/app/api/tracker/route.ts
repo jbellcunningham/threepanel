@@ -37,6 +37,7 @@ type TrackerListItem = {
   id: string
   title: string
   type: string
+  done: boolean
   createdAt: string
   summary: Record<string, unknown>
 }
@@ -146,6 +147,7 @@ export async function GET() {
       id: true,
       title: true,
       type: true,
+      done: true,
       createdAt: true,
       entries: {
         select: {
@@ -160,6 +162,7 @@ export async function GET() {
     id: it.id,
     title: it.title,
     type: it.type,
+    done: it.done,
     createdAt: it.createdAt.toISOString(),
     summary: {
       entryCount: it.entries.length

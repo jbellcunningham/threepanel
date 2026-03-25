@@ -23,6 +23,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { getContainerTypeDisplay } from '@/lib/containerTypeDisplay'
 
 /* =========================================================
    2) Types
@@ -32,6 +33,7 @@ type ContainerItem = {
   id: string
   title: string
   type: string
+  done: boolean
   createdAt: string
   summary?: Record<string, unknown>
 }
@@ -83,6 +85,10 @@ function getContainerListDescription(typeFilter: string) {
   }
 
   return `Viewing containers filtered by type: ${typeFilter}`
+}
+
+function isBuiltInTemplateType(value: string): value is BuiltInTemplateType {
+  return value === 'tracker' || value === 'todo' || value === 'journal'
 }
 
 function getFilterButtons(): FilterButton[] {
@@ -242,6 +248,63 @@ export default function ContainersPage() {
     router.push(`/app/containers/${id}/settings`)
   }
 
+  async function toggleTodoContainerDone(id: string, nextDone: boolean) {
+    setError(null)
+
+    const res = await fetch(`/api/items/${id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        done: nextDone
+      })
+    })
+
+    const raw = await res.text()
+
+    let data: any = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok) {
+      setError(data?.error || raw || 'Failed to update todo container')
+      return
+    }
+
+    await load()
+  }
+
+  async function deleteContainer(id: string, title: string) {
+    const confirmed = confirm(`Delete container "${title}" and all of its entries?`)
+    if (!confirmed) return
+
+    setError(null)
+
+    const res = await fetch(`/api/tracker/${id}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    })
+
+    const raw = await res.text()
+
+    let data: any = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok || !data?.ok) {
+      setError(data?.error || raw || 'Failed to delete container')
+      return
+    }
+
+    await load()
+  }
+
   function applyTypeFilter(nextType: string) {
     if (!nextType) {
       router.push('/app/containers')
@@ -304,7 +367,18 @@ export default function ContainersPage() {
           type="button"
           title={showCreate ? 'Hide' : 'Create Container'}
           onClick={() => {
-            setShowCreate((prev) => !prev)
+            setShowCreate((prev) => {
+              const next = !prev
+
+              if (next) {
+                if (isBuiltInTemplateType(typeFilter)) {
+                  setCreateMode('template')
+                  setTemplateType(typeFilter)
+                }
+              }
+
+              return next
+            })
           }}
           style={{
             height: 36,
@@ -435,11 +509,24 @@ export default function ContainersPage() {
                 }}
               >
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 700 }}>{it.title}</div>
-
-                  <div style={{ marginTop: 4, fontSize: 12, opacity: 0.7 }}>
-                    Type: {it.type}
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      textDecoration: it.type === 'todo' && it.done ? 'line-through' : 'none'
+                    }}
+                  >
+                    {it.title}
                   </div>
+
+                  {(() => {
+                    const display = getContainerTypeDisplay(it.type)
+
+                    return (
+                      <div style={{ marginTop: 4, fontSize: 12, opacity: 0.7 }}>
+                        {display.icon} {display.label}
+                      </div>
+                    )
+                  })()}
 
                   <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
                     <em>Summary stats will appear here (configurable per container)</em>
@@ -451,6 +538,28 @@ export default function ContainersPage() {
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+   
+                  {it.type === 'todo' ? (
+                    <button
+                      type="button"
+                      title={it.done ? 'Mark container open' : 'Mark container done'}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleTodoContainerDone(it.id, !it.done)
+                      }}
+                      style={{
+                        height: 32,
+                        width: 32,
+                        borderRadius: 8,
+                        border: '1px solid rgba(0,0,0,0.12)',
+                        background: 'transparent',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {it.done ? '↩️' : '✔️'}
+                    </button>
+                  ) : null}
+   
                   <button
                     type="button"
                     title="Open container entries"
@@ -487,6 +596,25 @@ export default function ContainersPage() {
                     }}
                   >
                     ⚙️
+                  </button>
+
+                  <button
+                    type="button"
+                    title="Delete container"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      deleteContainer(it.id, it.title)
+                    }}
+                    style={{
+                      height: 32,
+                      width: 32,
+                      borderRadius: 8,
+                      border: '1px solid rgba(0,0,0,0.12)',
+                      background: 'transparent',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🗑️
                   </button>
                 </div>
               </div>

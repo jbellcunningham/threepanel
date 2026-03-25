@@ -143,7 +143,7 @@ export async function GET(_req: Request, ctx: RouteCtx) {
 
   // (c) Load tracker item
   const item = await prisma.trackerItem.findFirst({
-    where: { id, userId: user.id, type: 'tracker' },
+    where: { id, userId: user.id },
     select: {
       id: true,
       title: true,
@@ -190,7 +190,7 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
 
   // (c) Ensure tracker exists and belongs to user
   const existing = await prisma.trackerItem.findFirst({
-    where: { id, userId: user.id, type: 'tracker' },
+    where: { id, userId: user.id },
     select: { id: true },
   })
 

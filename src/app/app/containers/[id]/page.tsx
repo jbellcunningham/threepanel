@@ -36,6 +36,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
+import { getContainerTypeDisplay } from '@/lib/containerTypeDisplay'
 
 /* =========================================================
    2) Types
@@ -143,15 +144,37 @@ function getContainerIdFromPathname(pathname: string) {
   return parts[parts.length - 1] || ''
 }
 
-function getContainerLabel(type?: string) {
-  if (!type) return 'Container'
+function getEffectiveSchema(item: TrackerItem | null | undefined): TrackerSchema | null {
+  if (item?.schema?.fields?.length) {
+    return item.schema
+  }
 
-  if (type === 'tracker') return 'Tracker'
-  if (type === 'todo') return 'Todo'
-  if (type === 'journal') return 'Journal'
+  if (item?.type === 'todo') {
+    return {
+      version: 1,
+      fields: [
+        { id: 'title', label: 'Title', type: 'text', required: true },
+        { id: 'done', label: 'Done', type: 'boolean', required: true },
+        { id: 'due_at', label: 'Due Date', type: 'date' },
+        { id: 'notes', label: 'Notes', type: 'text' }
+      ]
+    }
+  }
 
-  return type
+  if (item?.type === 'journal') {
+    return {
+      version: 1,
+      fields: [
+        { id: 'recordedDate', label: 'Recorded Date', type: 'date', required: true },
+        { id: 'location', label: 'Location', type: 'dropdown' },
+        { id: 'textEntry', label: 'Text Entry', type: 'text', required: true }
+      ]
+    }
+  }
+
+  return item?.schema ?? null
 }
+
 
 /**
  * Creates a fresh entry form object from the tracker schema.
@@ -316,7 +339,7 @@ export default function ContainerDetailPage() {
      Derived values
      ----------------------------- */
 
-  const schema = item?.schema ?? null
+  const schema = getEffectiveSchema(item)
   const isEditing = editingEntryId !== null
 
   const canSave = useMemo(() => {
@@ -610,9 +633,15 @@ async function loadStats() {
           </h1>
           {item && (
             <>
-              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 2 }}>
-                Type: {getContainerLabel(item.type)}
-              </div>
+              {(() => {
+                const display = getContainerTypeDisplay(item.type)
+
+                return (
+                  <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 2 }}>
+                    Type: {display.icon} {display.label}
+                  </div>
+                )
+              })()}
               <div style={{ fontSize: 12, opacity: 0.7 }}>
                 Created: {formatDate(item.createdAt)}
               </div>

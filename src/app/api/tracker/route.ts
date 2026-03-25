@@ -42,6 +42,14 @@ type TrackerListItem = {
   summary: Record<string, unknown>
 }
 
+type EntryDataRecord = Record<string, unknown>
+
+type ListEntry = {
+  id: string
+  createdAt: Date
+  data: unknown
+}
+
 /* =========================================================
    3) Helpers
    ========================================================= */
@@ -93,7 +101,11 @@ function normalizeType(value: string) {
 }
 
 function resolveContainerType(body: CreateTrackerBody): string | null {
-  if (body.templateType === 'tracker' || body.templateType === 'todo' || body.templateType === 'journal') {
+  if (
+    body.templateType === 'tracker' ||
+    body.templateType === 'todo' ||
+    body.templateType === 'journal'
+  ) {
     return body.templateType
   }
 
@@ -109,7 +121,11 @@ function resolveContainerType(body: CreateTrackerBody): string | null {
 }
 
 function resolveSchema(body: CreateTrackerBody, resolvedType: string): unknown {
-  if (body.templateType === 'tracker' || body.templateType === 'todo' || body.templateType === 'journal') {
+  if (
+    body.templateType === 'tracker' ||
+    body.templateType === 'todo' ||
+    body.templateType === 'journal'
+  ) {
     return getDefaultSchema(body.templateType)
   }
 
@@ -120,6 +136,66 @@ function resolveSchema(body: CreateTrackerBody, resolvedType: string): unknown {
   return {
     version: 1,
     fields: []
+  }
+}
+
+function getEntryDataRecord(value: unknown): EntryDataRecord {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {}
+  }
+
+  return value as EntryDataRecord
+}
+
+function countOpenTodoEntries(entries: ListEntry[]) {
+  let openCount = 0
+
+  entries.forEach((entry) => {
+    const data = getEntryDataRecord(entry.data)
+    if (data.done !== true) {
+      openCount += 1
+    }
+  })
+
+  return openCount
+}
+
+function getLastEntryAt(entries: ListEntry[]) {
+  if (entries.length === 0) {
+    return null
+  }
+
+  return entries[0].createdAt.toISOString()
+}
+
+function buildSummary(type: string, entries: ListEntry[]) {
+  const lastEntryAt = getLastEntryAt(entries)
+
+  if (type === 'todo') {
+    return {
+      entryCount: entries.length,
+      openSubtaskCount: countOpenTodoEntries(entries),
+      lastEntryAt
+    }
+  }
+
+  if (type === 'journal') {
+    return {
+      entryCount: entries.length,
+      lastEntryAt
+    }
+  }
+
+  if (type === 'tracker') {
+    return {
+      entryCount: entries.length,
+      lastEntryAt
+    }
+  }
+
+  return {
+    entryCount: entries.length,
+    lastEntryAt
   }
 }
 
@@ -150,8 +226,13 @@ export async function GET() {
       done: true,
       createdAt: true,
       entries: {
+        orderBy: {
+          createdAt: 'desc'
+        },
         select: {
-          id: true
+          id: true,
+          createdAt: true,
+          data: true
         }
       }
     }
@@ -164,9 +245,7 @@ export async function GET() {
     type: it.type,
     done: it.done,
     createdAt: it.createdAt.toISOString(),
-    summary: {
-      entryCount: it.entries.length
-    }
+    summary: buildSummary(it.type, it.entries)
   }))
 
   return NextResponse.json({ ok: true, items: itemsWithSummary })

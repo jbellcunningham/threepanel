@@ -29,13 +29,19 @@ import { getContainerTypeDisplay } from '@/lib/containerTypeDisplay'
    2) Types
    ========================================================= */
 
+type ContainerSummary = {
+  entryCount?: number
+  openSubtaskCount?: number
+  lastEntryAt?: string | null
+}
+
 type ContainerItem = {
   id: string
   title: string
   type: string
   done: boolean
   createdAt: string
-  summary?: Record<string, unknown>
+  summary?: ContainerSummary
 }
 
 type BuiltInTemplateType = 'tracker' | 'todo' | 'journal'
@@ -89,6 +95,36 @@ function getContainerListDescription(typeFilter: string) {
 
 function isBuiltInTemplateType(value: string): value is BuiltInTemplateType {
   return value === 'tracker' || value === 'todo' || value === 'journal'
+}
+
+function getContainerSummaryText(item: ContainerItem) {
+  const entryCount = typeof item.summary?.entryCount === 'number' ? item.summary.entryCount : 0
+  const openSubtaskCount =
+    typeof item.summary?.openSubtaskCount === 'number' ? item.summary.openSubtaskCount : 0
+  const lastEntryAt =
+    typeof item.summary?.lastEntryAt === 'string' ? item.summary.lastEntryAt : null
+
+  if (item.type === 'todo') {
+    return `${openSubtaskCount} open subtasks`
+  }
+
+  if (item.type === 'tracker') {
+    if (lastEntryAt) {
+      return `${entryCount} entries • Last entry: ${formatDate(lastEntryAt)}`
+    }
+
+    return `${entryCount} entries`
+  }
+
+  if (item.type === 'journal') {
+    if (lastEntryAt) {
+      return `Last entry: ${formatDate(lastEntryAt)}`
+    }
+
+    return 'No journal entries yet'
+  }
+
+  return `${entryCount} entries`
 }
 
 function getFilterButtons(): FilterButton[] {
@@ -529,7 +565,7 @@ export default function ContainersPage() {
                   })()}
 
                   <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
-                    <em>Summary stats will appear here (configurable per container)</em>
+                    <em>{getContainerSummaryText(it)}</em>
                   </div>
 
                   <div style={{ fontSize: 12, opacity: 0.7 }}>

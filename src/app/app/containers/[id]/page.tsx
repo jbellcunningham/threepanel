@@ -328,6 +328,7 @@ export default function ContainerDetailPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<TrackerStats | null>(null);
+  const [showStats, setShowStats] = useState(false)
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
   const hasFieldStats = stats ? Object.keys(stats.fields).length > 0 : false
@@ -661,7 +662,25 @@ async function loadStats() {
       ) : (
         <>
 
-          {/* NEW: Container Statistics */}
+          {/* Container Statistics Toggle */}
+          <div style={{ marginTop: 18 }}>
+            <button
+              type="button"
+              onClick={() => setShowStats((prev) => !prev)}
+              style={{
+                height: 36,
+                padding: '0 14px',
+                borderRadius: 8,
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: 'transparent',
+                cursor: 'pointer'
+              }}
+            >
+              {showStats ? 'Hide Statistics' : 'Show Statistics'}
+            </button>
+          </div>
+
+          {showStats && (
           <section
             style={{
               marginTop: 18,
@@ -926,6 +945,7 @@ async function loadStats() {
               </div>
             )}
           </section>
+          )}
 
           {/* Entry Form */}
           <section

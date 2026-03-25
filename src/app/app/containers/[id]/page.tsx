@@ -592,7 +592,7 @@ async function loadStats() {
         <h1 style={{ marginTop: 0 }}>Container</h1>
         <div style={{ color: 'crimson' }}>Missing container id in route.</div>
         <div style={{ marginTop: 10 }}>
-          <Link href="/app/tracker">← Back to Containers</Link>
+          <Link href="/app/containers">← Back to Containers</Link>
         </div>
       </main>
     )
@@ -602,7 +602,7 @@ async function loadStats() {
     <main style={{ maxWidth: 900 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <div>
-          <Link href="/app/tracker" style={{ textDecoration: 'none' }}>
+          <Link href="/app/containers" style={{ textDecoration: 'none' }}>
             ← Back to Containers
           </Link>
           <h1 style={{ marginTop: 8, marginBottom: 6 }}>

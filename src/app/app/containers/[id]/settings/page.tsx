@@ -315,7 +315,7 @@ export default function TrackerSettingsPage() {
         <h1 style={{ marginTop: 0 }}>Container Settings</h1>
         <div style={{ color: 'crimson' }}>Missing container id in route.</div>
         <div style={{ marginTop: 10 }}>
-          <Link href="/app/tracker">← Back to Containers</Link>
+          <Link href="/app/containers">← Back to Containers</Link>
         </div>
       </main>
     )

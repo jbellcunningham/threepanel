@@ -5,10 +5,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 const PANELS = [
-  { slug: 'todos-unified', title: 'To-Do' },
-  { slug: 'tracker', title: 'Tracker' },
-  { slug: 'journal', title: 'Journal' },
-  { slug: 'settings', title: 'Settings' },
+  { href: '/app/containers', title: 'All Containers' },
+  { href: '/app/containers?type=tracker', title: 'Tracker' },
+  { href: '/app/containers?type=todo', title: 'To-Do' },
+  { href: '/app/containers?type=journal', title: 'Journal' },
+  { href: '/app/settings', title: 'Settings' },
 ] as const
 
 const STORAGE_KEY = 'threepanel_settings_v1'
@@ -66,7 +67,7 @@ useEffect(() => {
           {PANELS.map((p) => (
             <Link
               key={p.slug}
-              href={`/app/${p.slug}`}
+              href={p.href}
               style={{
                 padding: '10px 12px',
                 borderRadius: 8,

@@ -1,18 +1,19 @@
 'use client'
 
 /**
- * FILE: /app/app/tracker/page.tsx
+ * FILE: /app/app/containers/page.tsx
  *
  * PURPOSE:
- * - Lists all trackers for the logged-in user
+ * - Lists all containers for the logged-in user
  * - Allows creation of new containers
  * - Supports built-in templates and custom types
+ * - Supports filtering by container type via query param
  * - Provides quick actions:
- *   - pencil -> open tracker entries page
- *   - sprocket -> open tracker settings page
+ *   - pencil -> open container entries page
+ *   - sprocket -> open container settings page
  *
  * ARCHITECTURE ROLE:
- * - Client UI layer for container list
+ * - Client UI layer for unified container list
  * - Consumes GET/POST /api/tracker
  */
 
@@ -21,13 +22,13 @@
    ========================================================= */
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 /* =========================================================
    2) Types
    ========================================================= */
 
-type TrackerItem = {
+type ContainerItem = {
   id: string
   title: string
   type: string
@@ -50,18 +51,47 @@ function formatDate(iso: string) {
   }
 }
 
+function getContainerListTitle(typeFilter: string) {
+  if (!typeFilter) {
+    return 'Containers'
+  }
+
+  if (typeFilter === 'tracker') {
+    return 'Tracker Containers'
+  }
+
+  if (typeFilter === 'todo') {
+    return 'Todo Containers'
+  }
+
+  if (typeFilter === 'journal') {
+    return 'Journal Containers'
+  }
+
+  return `${typeFilter} Containers`
+}
+
+function getContainerListDescription(typeFilter: string) {
+  if (!typeFilter) {
+    return 'Create and manage containers from built-in templates or start a new custom type.'
+  }
+
+  return `Viewing containers filtered by type: ${typeFilter}`
+}
+
 /* =========================================================
    4) Component
    ========================================================= */
 
-export default function TrackerPage() {
+export default function ContainersPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   /* -----------------------------
      State
      ----------------------------- */
 
-  const [items, setItems] = useState<TrackerItem[]>([])
+  const [items, setItems] = useState<ContainerItem[]>([])
   const [title, setTitle] = useState('')
   const [createMode, setCreateMode] = useState<CreateMode>('template')
   const [templateType, setTemplateType] = useState<BuiltInTemplateType>('tracker')
@@ -73,6 +103,22 @@ export default function TrackerPage() {
   /* -----------------------------
      Derived values
      ----------------------------- */
+
+  const typeFilter = (searchParams.get('type') || '').trim().toLowerCase()
+
+  const filteredItems = useMemo(() => {
+    if (!typeFilter) {
+      return items
+    }
+
+    return items.filter((item) => item.type.toLowerCase() === typeFilter)
+  }, [items, typeFilter])
+
+  const pageTitle = useMemo(() => getContainerListTitle(typeFilter), [typeFilter])
+  const pageDescription = useMemo(
+    () => getContainerListDescription(typeFilter),
+    [typeFilter]
+  )
 
   const canAdd = useMemo(() => {
     if (!title.trim()) {
@@ -105,7 +151,7 @@ export default function TrackerPage() {
     }
 
     if (!res.ok || !data?.ok) {
-      setError(data?.error || raw || 'Failed to load trackers')
+      setError(data?.error || raw || 'Failed to load containers')
       setLoading(false)
       return
     }
@@ -193,10 +239,8 @@ export default function TrackerPage() {
 
   return (
     <main style={{ maxWidth: 900 }}>
-      <h1 style={{ marginTop: 0 }}>Containers</h1>
-      <p style={{ opacity: 0.75, marginTop: 6 }}>
-        Create and manage containers from built-in templates or start a new custom type.
-      </p>
+      <h1 style={{ marginTop: 0 }}>{pageTitle}</h1>
+      <p style={{ opacity: 0.75, marginTop: 6 }}>{pageDescription}</p>
 
       <section
         style={{
@@ -280,11 +324,15 @@ export default function TrackerPage() {
       <section style={{ marginTop: 16 }}>
         {loading ? (
           <div>Loading…</div>
-        ) : items.length === 0 ? (
-          <div style={{ opacity: 0.75 }}>No trackers yet.</div>
+        ) : filteredItems.length === 0 ? (
+          <div style={{ opacity: 0.75 }}>
+            {typeFilter
+              ? `No containers found for type: ${typeFilter}.`
+              : 'No containers yet.'}
+          </div>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
-            {items.map((it) => (
+            {filteredItems.map((it) => (
               <div
                 key={it.id}
                 role="button"
@@ -312,7 +360,7 @@ export default function TrackerPage() {
                   </div>
 
                   <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
-                    <em>Summary stats will appear here (configurable per tracker)</em>
+                    <em>Summary stats will appear here (configurable per container)</em>
                   </div>
 
                   <div style={{ fontSize: 12, opacity: 0.7 }}>
@@ -323,7 +371,7 @@ export default function TrackerPage() {
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                   <button
                     type="button"
-                    title="Open tracker entries"
+                    title="Open container entries"
                     onClick={(e) => {
                       e.stopPropagation()
                       openContainer(it.id)
@@ -342,7 +390,7 @@ export default function TrackerPage() {
 
                   <button
                     type="button"
-                    title="Tracker settings"
+                    title="Container settings"
                     onClick={(e) => {
                       e.stopPropagation()
                       openContainerSettings(it.id)

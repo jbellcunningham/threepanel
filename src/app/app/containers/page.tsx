@@ -53,7 +53,7 @@ function formatDate(iso: string) {
 
 function getContainerListTitle(typeFilter: string) {
   if (!typeFilter) {
-    return 'Containers'
+    return 'All Containers'
   }
 
   if (typeFilter === 'tracker') {

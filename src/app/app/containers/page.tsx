@@ -39,6 +39,12 @@ type ContainerItem = {
 type BuiltInTemplateType = 'tracker' | 'todo' | 'journal'
 type CreateMode = 'template' | 'custom'
 
+type FilterButton = {
+  key: string
+  label: string
+  type: string
+}
+
 /* =========================================================
    3) Helpers
    ========================================================= */
@@ -79,6 +85,15 @@ function getContainerListDescription(typeFilter: string) {
   return `Viewing containers filtered by type: ${typeFilter}`
 }
 
+function getFilterButtons(): FilterButton[] {
+  return [
+    { key: 'all', label: 'All', type: '' },
+    { key: 'tracker', label: 'Tracker', type: 'tracker' },
+    { key: 'todo', label: 'To-Do', type: 'todo' },
+    { key: 'journal', label: 'Journal', type: 'journal' }
+  ]
+}
+
 /* =========================================================
    4) Component
    ========================================================= */
@@ -99,6 +114,7 @@ export default function ContainersPage() {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showCreate, setShowCreate] = useState(false)
 
   /* -----------------------------
      Derived values
@@ -214,6 +230,7 @@ export default function ContainersPage() {
     setCreateMode('template')
 
     await load()
+    setShowCreate(false)
     setCreating(false)
   }
 
@@ -223,6 +240,15 @@ export default function ContainersPage() {
 
   function openContainerSettings(id: string) {
     router.push(`/app/containers/${id}/settings`)
+  }
+
+  function applyTypeFilter(nextType: string) {
+    if (!nextType) {
+      router.push('/app/containers')
+      return
+    }
+
+    router.push(`/app/containers?type=${encodeURIComponent(nextType)}`)
   }
 
   /* =========================================================
@@ -243,6 +269,61 @@ export default function ContainersPage() {
       <p style={{ opacity: 0.75, marginTop: 6 }}>{pageDescription}</p>
 
       <section
+        style={{
+          marginTop: 16,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 8,
+          flexWrap: 'wrap'
+        }}
+      >
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {getFilterButtons().map((button) => {
+          const isActive = typeFilter === button.type
+
+          return (
+            <button
+              key={button.key}
+              type='button'
+              onClick={() => applyTypeFilter(button.type)}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 8,
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: isActive ? 'rgba(0,0,0,0.08)' : 'transparent',
+                cursor: 'pointer'
+              }}
+            >
+              {button.label}
+            </button>
+          )
+        })}
+       </div>
+        <button
+          type="button"
+          title={showCreate ? 'Hide' : 'Create Container'}
+          onClick={() => {
+            setShowCreate((prev) => !prev)
+          }}
+          style={{
+            height: 36,
+            width: 36,
+            borderRadius: 8,
+            border: '1px solid rgba(0,0,0,0.12)',
+            background: 'transparent',
+            cursor: 'pointer',
+            fontSize: 20,
+            lineHeight: '20px'
+          }}
+        >
+          {showCreate ? '−' : '+'}
+        </button>        
+      </section>
+
+      {showCreate && (
+      <section
+        id="create-container-section"
         style={{
           marginTop: 16,
           border: '1px solid rgba(0,0,0,0.12)',
@@ -318,6 +399,7 @@ export default function ContainersPage() {
           </button>
         </div>
       </section>
+      )}
 
       {error && <div style={{ color: 'crimson', marginTop: 10 }}>{error}</div>}
 

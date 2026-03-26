@@ -660,6 +660,10 @@ async function loadStats() {
       return
     }
 
+    if (selectedChartFieldId === '__all__') {
+      return
+    }
+
     const hasValidSelection = numericStatFields.some(
       ([fieldId]) => fieldId === selectedChartFieldId
     )
@@ -895,6 +899,7 @@ async function loadStats() {
                        background: 'white',
                      }}
                    >
+                     <option value="__all__">Show all</option>
                      {numericStatFields.map(([fieldId, field]) => (
                        <option key={fieldId} value={fieldId}>
                          {field.label}
@@ -909,7 +914,11 @@ async function loadStats() {
                     return null
                   }
 
-                  if (selectedChartFieldId && fieldId !== selectedChartFieldId) {
+                  if (
+                    selectedChartFieldId &&
+                    selectedChartFieldId !== '__all__' &&
+                    fieldId !== selectedChartFieldId
+                  ) {
                     return null
                   }
 

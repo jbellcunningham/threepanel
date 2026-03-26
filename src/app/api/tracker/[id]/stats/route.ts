@@ -18,7 +18,7 @@ import { getCurrentUser } from "@/lib/auth";
  * Types
  */
 
-type TrackerFieldType = "text" | "number" | "boolean" | "date" | "dropdown";
+type TrackerFieldType = "text" | "textarea" | "number" | "boolean" | "date" | "dropdown";
 
 type TrackerField = {
   id: string;
@@ -256,9 +256,11 @@ export async function GET(_request: Request, context: RouteContext) {
           latest: latest !== undefined ? roundNumber(latest) : null,
         };
 
-	// choose a date field from the schema (first date-type field if any)
-	const dateField = (schema.fields ?? []).find((f) => f.type === "date") ?? null;
-	const dateFieldId = dateField ? dateField.id : null;
+        // choose the first date field from the schema, if one exists
+        // current behavior: first schema date field drives the series x-axis
+        // fallback behavior: entry.createdAt when schema date is missing or invalid
+        const dateField = (schema.fields ?? []).find((f) => f.type === "date") ?? null;
+        const dateFieldId = dateField ? dateField.id : null;
 
 	stats.timeSeries[field.id] = tracker.entries
 	  .map((entry) => {

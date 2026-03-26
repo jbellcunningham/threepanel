@@ -37,6 +37,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { getContainerTypeDisplay } from '@/lib/containerTypeDisplay'
+import TrackerLineChart from '@/components/charts/TrackerLineChart'
 
 /* =========================================================
    2) Types
@@ -50,6 +51,8 @@ type TrackerField = {
   type: TrackerFieldType
   required?: boolean
   options?: string[]
+  showInCards?: boolean
+  showInList?: boolean
 }
 
 type TrackerSchema = {
@@ -106,7 +109,7 @@ type TrackerFieldStats =
   | BooleanFieldStats;
 
 type TrackerStats = {
-  containerIdOO: string;
+  trackerId: string;
   trackerTitle: string;
   entryCount: number;
   lastEntryAt: string | null;
@@ -440,8 +443,17 @@ async function loadStats() {
     });
 
     if (!response.ok) {
+      const raw = await response.text()
+
+      let data: any = null
+      try {
+        data = raw ? JSON.parse(raw) : null
+      } catch {
+        data = null
+      }
+
       setStats(null)
-      setStatsError(null)
+      setStatsError(data?.error || raw || 'Failed to load statistics')
       return
     }
 
@@ -451,7 +463,7 @@ async function loadStats() {
   } catch (error) {
     console.error('Failed to load stats:', error)
     setStats(null)
-    setStatsError(null)
+    setStatsError('Failed to load statistics')
   } finally {
     setStatsLoading(false);
   }
@@ -877,44 +889,7 @@ async function loadStats() {
                               Recorded Trend
                             </div>
 
-                            <div style={{ display: 'grid', gap: 6 }}>
-                              {stats.timeSeries[fieldId].map((point, index) => (
-                                <div key={index} style={{ display: 'grid', gap: 2 }}>
-                                  <div
-                                    style={{
-                                      display: 'flex',
-                                      justifyContent: 'space-between',
-                                      fontSize: 12,
-                                    }}
-                                  >
-                                        <span>
-                                          {formatChartDateLabel(
-                                            point.date,
-                                            dateCounts[new Date(point.date).toISOString().slice(0, 10)] > 1
-                                          )}
-                                        </span>
-                                    <span>{formatStatsValue(point.value)}</span>
-                                  </div>
-
-                                  <div
-                                    style={{
-                                      height: 8,
-                                      borderRadius: 999,
-                                      background: 'rgba(0,0,0,0.08)',
-                                      overflow: 'hidden',
-                                    }}
-                                  >
-                                    <div
-                                      style={{
-                                        width: `${field.max && field.max > 0 ? Math.max((point.value / field.max) * 100, 8) : 0}%`,
-                                        height: '100%',
-                                        background: 'rgba(0,0,0,0.45)',
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
+                            <TrackerLineChart data={stats.timeSeries[fieldId]} />
                           </div>
                         )}
                    </div>

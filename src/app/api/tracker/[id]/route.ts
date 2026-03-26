@@ -26,6 +26,8 @@ type TrackerField = {
   type: TrackerFieldType
   required?: boolean
   options?: string[]
+  showInCards?: boolean
+  showInList?: boolean
 }
 
 type TrackerSchema = {
@@ -97,6 +99,20 @@ function validateSchema(schema: unknown): schema is TrackerSchema {
       return false
     }
 
+    if (
+      field.showInCards !== undefined &&
+      typeof field.showInCards !== 'boolean'
+    ) {
+      return false
+    }
+
+    if (
+      field.showInList !== undefined &&
+      typeof field.showInList !== 'boolean'
+    ) {
+      return false
+    }
+
     if (field.type === 'dropdown') {
       if (field.options !== undefined && !Array.isArray(field.options)) {
         return false
@@ -121,6 +137,8 @@ function normalizeSchema(schema: TrackerSchema): TrackerSchema {
       label: field.label.trim(),
       type: field.type,
       required: Boolean(field.required),
+      showInCards: Boolean(field.showInCards),
+      showInList: Boolean(field.showInList),
       options:
         field.type === 'dropdown'
           ? (field.options ?? []).map((o) => o.trim()).filter(Boolean)

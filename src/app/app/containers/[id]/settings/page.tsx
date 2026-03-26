@@ -34,6 +34,8 @@ type TrackerField = {
   label: string
   type: TrackerFieldType
   required?: boolean
+  showInCards?: boolean
+  showInList?: boolean
 }
 
 type EditableTrackerField = TrackerField & {
@@ -99,6 +101,8 @@ function makeDefaultField(index: number): EditableTrackerField {
     label: `Field ${index}`,
     type: 'text',
     required: false,
+    showInCards: false,
+    showInList: false,
   }
 }
 
@@ -114,6 +118,8 @@ function toSchemaFields(fields: EditableTrackerField[]): TrackerField[] {
     ...field,
     id: field.id.trim(),
     label: field.label.trim(),
+    showInCards: Boolean(field.showInCards),
+    showInList: Boolean(field.showInList),
   }))
 }
 
@@ -506,22 +512,66 @@ export default function TrackerSettingsPage() {
                       </div>
                     </div>
 
-                    <label
+                    <div
                       style={{
                         display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
+                        gap: 16,
+                        flexWrap: 'wrap',
                         marginTop: 10,
-                        fontSize: 13,
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={Boolean(field.required)}
-                        onChange={(e) => updateField(field.uid, { required: e.target.checked })}
-                      />
-                      Required
-                    </label>
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          fontSize: 13,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(field.required)}
+                          onChange={(e) => updateField(field.uid, { required: e.target.checked })}
+                        />
+                        Required
+                      </label>
+
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          fontSize: 13,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(field.showInCards)}
+                          onChange={(e) =>
+                            updateField(field.uid, { showInCards: e.target.checked })
+                          }
+                        />
+                        Show in cards
+                      </label>
+
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          fontSize: 13,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(field.showInList)}
+                          onChange={(e) =>
+                            updateField(field.uid, { showInList: e.target.checked })
+                          }
+                        />
+                        Show in list
+                      </label>
+                    </div>
 
                     {field.type === 'dropdown' && (
                       <div style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>

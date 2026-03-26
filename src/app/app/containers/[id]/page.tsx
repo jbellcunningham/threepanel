@@ -34,7 +34,7 @@
    ========================================================= */
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { getContainerTypeDisplay } from '@/lib/containerTypeDisplay'
 
@@ -204,23 +204,32 @@ function buildEmptyFormData(schema: TrackerSchema | null | undefined) {
  * Builds a short summary string for each entry card using the
  * tracker schema order. This keeps the list compact and schema-driven.
  */
-function formatEntrySummary(schema: TrackerSchema | null | undefined, entry: TrackerEntry) {
+function formatEntrySummary(
+  schema: TrackerSchema | null | undefined,
+  entry: TrackerEntry
+) {
   const data = entry.data ?? {}
 
   if (!schema?.fields?.length) {
     return '(empty entry)'
   }
 
+  // 1) prefer fields explicitly marked for cards
+  const cardFields = schema.fields.filter((f) => f.showInCards)
+
+  const fieldsToUse = cardFields.length > 0 ? cardFields : schema.fields
+
   const parts: string[] = []
 
-  for (const field of schema.fields) {
+  for (const field of fieldsToUse) {
     const value = data[field.id]
 
     if (value === undefined || value === null || value === '') continue
 
     parts.push(`${field.label}: ${String(value)}`)
 
-    if (parts.length >= 2) break
+    // limit fallback case to 2 fields only
+    if (cardFields.length === 0 && parts.length >= 2) break
   }
 
   if (parts.length === 0) {
@@ -322,8 +331,9 @@ function formatChartDateLabel(value: string, showTime: boolean): string {
 
 export default function ContainerDetailPage() {
   const pathname = usePathname()
+  const router = useRouter()
   const containerId = useMemo(() => getContainerIdFromPathname(pathname), [pathname])
-
+  
   /* -----------------------------
      State
      ----------------------------- */
@@ -679,8 +689,16 @@ async function loadStats() {
       ) : (
         <>
 
-          {/* Container Statistics Toggle */}
-          <div style={{ marginTop: 18 }}>
+          {/* Container Statistics / Settings Actions */}
+          <div
+            style={{
+              marginTop: 18,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 10
+            }}
+          >
             <button
               type="button"
               onClick={() => setShowStats((prev) => !prev)}
@@ -694,6 +712,22 @@ async function loadStats() {
               }}
             >
               {showStats ? 'Hide Statistics' : 'Show Statistics'}
+            </button>
+
+            <button
+              type="button"
+              title="Container settings"
+              onClick={() => router.push(`/app/containers/${containerId}/settings`)}
+              style={{
+                height: 36,
+                width: 36,
+                borderRadius: 8,
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: 'transparent',
+                cursor: 'pointer'
+              }}
+            >
+              ⚙️
             </button>
           </div>
 

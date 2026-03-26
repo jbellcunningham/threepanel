@@ -18,7 +18,7 @@ import { getCurrentUser } from '@/lib/auth'
    2) Types: response/request shapes used by this route
    ========================================================= */
 
-type TrackerFieldType = 'text' | 'number' | 'boolean' | 'date' | 'dropdown'
+type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'dropdown'
 
 type TrackerField = {
   id: string
@@ -69,6 +69,7 @@ function isNonEmptyString(v: unknown): v is string {
 function isValidFieldType(v: unknown): v is TrackerFieldType {
   return (
     v === 'text' ||
+    v === 'textarea' ||
     v === 'number' ||
     v === 'boolean' ||
     v === 'date' ||

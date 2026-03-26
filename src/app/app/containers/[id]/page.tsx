@@ -42,7 +42,7 @@ import { getContainerTypeDisplay } from '@/lib/containerTypeDisplay'
    2) Types
    ========================================================= */
 
-type TrackerFieldType = 'text' | 'number' | 'boolean' | 'date' | 'dropdown'
+type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'dropdown'
 
 type TrackerField = {
   id: string
@@ -167,7 +167,7 @@ function getEffectiveSchema(item: TrackerItem | null | undefined): TrackerSchema
       fields: [
         { id: 'recordedDate', label: 'Recorded Date', type: 'date', required: true },
         { id: 'location', label: 'Location', type: 'dropdown' },
-        { id: 'textEntry', label: 'Text Entry', type: 'text', required: true }
+        { id: 'textEntry', label: 'Text Entry', type: 'textarea', required: true }
       ]
     }
   }
@@ -229,6 +229,13 @@ function formatEntrySummary(schema: TrackerSchema | null | undefined, entry: Tra
 
   return parts.join(' • ')
 }
+
+function getJournalEntryText(entry: TrackerEntry) {
+  const value = entry.data?.textEntry
+
+  return typeof value === 'string' ? value.trim() : ''
+}
+
 
 /**
  * Collects prior unique values for a dropdown field from this tracker's entries.
@@ -352,7 +359,12 @@ export default function ContainerDetailPage() {
 
       const value = formData[field.id]
 
-      if (field.type === 'text' || field.type === 'date' || field.type === 'dropdown') {
+      if (
+        field.type === 'text' ||
+        field.type === 'textarea' ||
+        field.type === 'date' ||
+        field.type === 'dropdown'
+      ) {
         if (typeof value !== 'string' || value.trim().length === 0) return false
       }
 
@@ -451,7 +463,12 @@ async function loadStats() {
         nextValue = rawValue === '' ? '' : Number(rawValue)
       }
 
-      if (field.type === 'text' || field.type === 'date' || field.type === 'dropdown') {
+      if (
+        field.type === 'text' ||
+        field.type === 'textarea' ||
+        field.type === 'date' ||
+        field.type === 'dropdown'
+      ) {
         nextValue = String(rawValue)
       }
 
@@ -1002,6 +1019,32 @@ async function loadStats() {
                             ))}
                           </datalist>
                         </>
+                      ) : field.type === 'textarea' ? (
+                        <textarea
+                          ref={(el) => {
+                            if (el) {
+                              el.style.height = 'auto'
+                              el.style.height = `${el.scrollHeight}px`
+                            }
+                          }}
+                          value={typeof value === 'string' ? value : ''}
+                          onChange={(e) => {
+                            const el = e.target as HTMLTextAreaElement
+                            setFieldValue(field, el.value)
+
+                            el.style.height = 'auto'
+                            el.style.height = `${el.scrollHeight}px`
+                          }}
+                          rows={1}
+                          style={{
+                            padding: '10px',
+                            borderRadius: 8,
+                            border: '1px solid rgba(0,0,0,0.18)',
+                            resize: 'none',
+                            font: 'inherit',
+                            overflow: 'hidden'
+                          }}
+                        />
                       ) : (
                         <input
                           type={
@@ -1097,8 +1140,14 @@ async function loadStats() {
                         gap: 12,
                       }}
                     >
+
                       <div style={{ fontWeight: 700 }}>
-                        {formatEntrySummary(schema, entry)}
+                        {item?.type === 'journal'
+                          ? (() => {
+                              const text = getJournalEntryText(entry)
+                              return text ? text.split('\n')[0] : formatEntrySummary(schema, entry)
+                            })()
+                          : formatEntrySummary(schema, entry)}
                       </div>
 
                       <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
@@ -1135,6 +1184,18 @@ async function loadStats() {
                         </button>
                       </div>
                     </div>
+
+                    {item?.type === 'journal' && getJournalEntryText(entry) ? (
+                      <div
+                        style={{
+                          marginTop: 8,
+                          whiteSpace: 'pre-wrap',
+                          lineHeight: 1.5
+                        }}
+                      >
+                        {getJournalEntryText(entry)}
+                      </div>
+                    ) : null}
 
                     <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
                       Created: {formatDate(entry.createdAt)}

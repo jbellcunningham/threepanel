@@ -27,7 +27,7 @@ import { useEffect, useMemo, useState } from 'react'
    2) Types
    ========================================================= */
 
-type TrackerFieldType = 'text' | 'number' | 'boolean' | 'date' | 'dropdown'
+type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'dropdown'
 
 type TrackerField = {
   id: string
@@ -473,6 +473,7 @@ export default function TrackerSettingsPage() {
                           }}
                         >
                           <option value="text">text</option>
+                          <option value="textarea">textarea</option>
                           <option value="number">number</option>
                           <option value="boolean">boolean</option>
                           <option value="date">date</option>

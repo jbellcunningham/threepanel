@@ -126,7 +126,11 @@ export default function SettingsPage() {
     password: '',
     role: 'USER',
   })
+
   const [creatingUser, setCreatingUser] = useState(false)
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
+  const [showCurrentUserSettings, setShowCurrentUserSettings] = useState(true)
+  const [showAdminSection, setShowAdminSection] = useState(false)
   const [adminMsg, setAdminMsg] = useState<string | null>(null)
   const [adminError, setAdminError] = useState<string | null>(null)
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
@@ -259,6 +263,74 @@ export default function SettingsPage() {
     await refreshAdminUsers()
   }
 
+  async function updateUserRole(userId: string, role: CurrentUserRole) {
+    setUpdatingUserId(userId)
+    setAdminMsg(null)
+    setAdminError(null)
+
+    const res = await fetch(`/api/admin/users/${userId}/role`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    })
+
+    const raw = await res.text()
+
+    let data: any = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok || !data?.ok) {
+      setAdminError(data?.error || raw || 'Failed to update user role')
+      setUpdatingUserId(null)
+      return
+    }
+
+    setAdminMsg('User role updated.')
+    setUpdatingUserId(null)
+    await refreshAdminUsers()
+  }
+
+  async function deleteUser(userId: string, email: string) {
+    const confirmed = confirm(
+      `Delete user "${email}"?\n\nThis will permanently delete all of their containers and data.`
+    )
+
+    if (!confirmed) return
+
+    setUpdatingUserId(userId)
+    setAdminMsg(null)
+    setAdminError(null)
+
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    })
+
+    const raw = await res.text()
+
+    let data: any = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok || !data?.ok) {
+      setAdminError(data?.error || raw || 'Failed to delete user')
+      setUpdatingUserId(null)
+      return
+    }
+
+    setAdminMsg('User deleted.')
+    setUpdatingUserId(null)
+    await refreshAdminUsers()
+  }
+
   if (!settings) return <main>Loading…</main>
 
   return (
@@ -277,76 +349,105 @@ export default function SettingsPage() {
           padding: 16,
         }}
       >
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Account</h2>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: 18 }}>Current User Settings</h2>
 
-        <div style={{ fontSize: 14, marginBottom: 6 }}>
-          <strong>Email:</strong> {currentUser?.email || 'Loading...'}
+          <button
+            type="button"
+            onClick={() => setShowCurrentUserSettings((prev) => !prev)}
+            style={{ height: 36, padding: '0 12px' }}
+          >
+            {showCurrentUserSettings ? 'Hide' : 'Show'}
+          </button>
         </div>
 
-        <div style={{ fontSize: 14 }}>
-          <strong>Role:</strong> {currentUser?.role || 'Loading...'}
-        </div>
-      </section>
-
-      <section
-        style={{
-          marginTop: 20,
-          border: '1px solid rgba(0,0,0,0.12)',
-          borderRadius: 12,
-          padding: 16,
-        }}
-      >
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Branding</h2>
-
-        <label style={{ display: 'block', fontSize: 12, opacity: 0.8, marginBottom: 6 }}>
-          App Title
-        </label>
-        <input
-          value={settings.appTitle}
-          onChange={(e) => update('appTitle', e.target.value)}
-          placeholder="ThreePanel"
-          style={{ width: '100%', padding: '10px 12px' }}
-        />
-        <p style={{ fontSize: 12, opacity: 0.7, marginTop: 8 }}>
-          We’ll use this to label the sidebar and the browser title.
-        </p>
-      </section>
-
-      <section
-        style={{
-          marginTop: 16,
-          border: '1px solid rgba(0,0,0,0.12)',
-          borderRadius: 12,
-          padding: 16,
-        }}
-      >
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Appearance</h2>
-
-        <label style={{ display: 'block', fontSize: 12, opacity: 0.8, marginBottom: 6 }}>
-          Theme
-        </label>
-
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {(['system', 'light', 'dark'] as Theme[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => update('theme', t)}
+        {showCurrentUserSettings && (
+          <div style={{ display: 'grid', gap: 16, marginTop: 16 }}>
+            <section
               style={{
-                padding: '10px 12px',
-                borderRadius: 10,
                 border: '1px solid rgba(0,0,0,0.12)',
-                fontWeight: settings.theme === t ? 700 : 400,
+                borderRadius: 12,
+                padding: 16,
               }}
             >
-              {t}
-            </button>
-          ))}
-        </div>
+              <h3 style={{ marginTop: 0, fontSize: 18 }}>Account</h3>
 
-        <p style={{ fontSize: 12, opacity: 0.7, marginTop: 8 }}>
-          For now, this sets <code>document.documentElement.dataset.theme</code>.
-        </p>
+              <div style={{ fontSize: 14, marginBottom: 6 }}>
+                <strong>Email:</strong> {currentUser?.email || 'Loading...'}
+              </div>
+
+              <div style={{ fontSize: 14 }}>
+                <strong>Role:</strong> {currentUser?.role || 'Loading...'}
+              </div>
+            </section>
+
+            <section
+              style={{
+                border: '1px solid rgba(0,0,0,0.12)',
+                borderRadius: 12,
+                padding: 16,
+              }}
+            >
+              <h3 style={{ marginTop: 0, fontSize: 18 }}>Branding</h3>
+
+              <label style={{ display: 'block', fontSize: 12, opacity: 0.8, marginBottom: 6 }}>
+                App Title
+              </label>
+              <input
+                value={settings.appTitle}
+                onChange={(e) => update('appTitle', e.target.value)}
+                placeholder="ThreePanel"
+                style={{ width: '100%', padding: '10px 12px' }}
+              />
+              <p style={{ fontSize: 12, opacity: 0.7, marginTop: 8 }}>
+                We’ll use this to label the sidebar and the browser title.
+              </p>
+            </section>
+
+            <section
+              style={{
+                border: '1px solid rgba(0,0,0,0.12)',
+                borderRadius: 12,
+                padding: 16,
+              }}
+            >
+              <h3 style={{ marginTop: 0, fontSize: 18 }}>Appearance</h3>
+
+              <label style={{ display: 'block', fontSize: 12, opacity: 0.8, marginBottom: 6 }}>
+                Theme
+              </label>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {(['system', 'light', 'dark'] as Theme[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => update('theme', t)}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: 10,
+                      border: '1px solid rgba(0,0,0,0.12)',
+                      fontWeight: settings.theme === t ? 700 : 400,
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+
+              <p style={{ fontSize: 12, opacity: 0.7, marginTop: 8 }}>
+                For now, this sets <code>document.documentElement.dataset.theme</code>.
+              </p>
+            </section>
+          </div>
+        )}
       </section>
 
       {currentUser?.role === 'ADMIN' && (
@@ -358,11 +459,30 @@ export default function SettingsPage() {
             padding: 16,
           }}
         >
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>Admin</h2>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <h2 style={{ margin: 0, fontSize: 18 }}>Admin</h2>
 
-          <div style={{ fontSize: 13, opacity: 0.75, marginBottom: 12 }}>
-            User management for testing and administration.
+            <button
+              type="button"
+              onClick={() => setShowAdminSection((prev) => !prev)}
+              style={{ height: 36, padding: '0 12px' }}
+            >
+              {showAdminSection ? 'Hide' : 'Show'}
+            </button>
           </div>
+
+          {showAdminSection && (
+            <>
+              <div style={{ fontSize: 13, opacity: 0.75, marginTop: 12, marginBottom: 12 }}>
+                User management for testing and administration.
+              </div>
 
           <section
             style={{
@@ -436,15 +556,59 @@ export default function SettingsPage() {
                   }}
                 >
                   <div style={{ fontWeight: 700 }}>{user.email}</div>
-                  <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
-                    Role: {user.role}
+                  <div
+                    style={{
+                      marginTop: 8,
+                      display: 'flex',
+                      gap: 8,
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <span style={{ fontSize: 12, opacity: 0.75 }}>Role:</span>
+
+                    <select
+                      value={user.role}
+                      onChange={(e) =>
+                        updateUserRole(user.id, e.target.value as CurrentUserRole)
+                      }
+                      disabled={updatingUserId === user.id}
+                      style={{ padding: '8px 10px' }}
+                    >
+                      <option value="USER">USER</option>
+                      <option value="TESTER">TESTER</option>
+                      <option value="ADMIN">ADMIN</option>
+                    </select>
+                    <button
+                      type="button"
+                      title="Delete user"
+                      onClick={() => deleteUser(user.id, user.email)}
+                      disabled={updatingUserId === user.id}
+                      style={{
+                        height: 32,
+                        padding: '0 10px',
+                        borderRadius: 8,
+                        border: '1px solid rgba(0,0,0,0.12)',
+                        background: 'transparent',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🗑️
+                    </button>
+
+                    {updatingUserId === user.id ? (
+                      <span style={{ fontSize: 12, opacity: 0.75 }}>Updating...</span>
+                    ) : null}
                   </div>
-                  <div style={{ fontSize: 12, opacity: 0.75 }}>
+
+                  <div style={{ fontSize: 12, opacity: 0.75, marginTop: 8 }}>
                     Created: {formatDate(user.createdAt)}
                   </div>
                 </div>
               ))}
             </div>
+          )}
+            </>
           )}
         </section>
       )}

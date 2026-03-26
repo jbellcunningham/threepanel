@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 export async function getCurrentUser() {
   const cookieStore = await cookies()
   const token = cookieStore.get('session')?.value
+
   if (!token) return null
 
   const session = await prisma.session.findUnique({
@@ -14,6 +15,7 @@ export async function getCurrentUser() {
         select: {
           id: true,
           email: true,
+          role: true,
           createdAt: true,
           updatedAt: true,
         },

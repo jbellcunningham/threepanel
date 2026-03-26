@@ -351,6 +351,7 @@ export default function ContainerDetailPage() {
   const [showStats, setShowStats] = useState(false)
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [selectedChartFieldId, setSelectedChartFieldId] = useState<string>('')
   const hasFieldStats = stats ? Object.keys(stats.fields).length > 0 : false
 
   // Edit mode state
@@ -362,6 +363,14 @@ export default function ContainerDetailPage() {
 
   const schema = getEffectiveSchema(item)
   const isEditing = editingEntryId !== null
+
+  const numericStatFields = useMemo(() => {
+    if (!stats) return []
+
+    return Object.entries(stats.fields).filter(
+      ([, field]) => field.type === 'number'
+    )
+  }, [stats])
 
   const canSave = useMemo(() => {
     if (saving) return false
@@ -645,6 +654,21 @@ async function loadStats() {
     loadStats();
   }, [containerId]);
 
+  useEffect(() => {
+    if (numericStatFields.length === 0) {
+      setSelectedChartFieldId('')
+      return
+    }
+
+    const hasValidSelection = numericStatFields.some(
+      ([fieldId]) => fieldId === selectedChartFieldId
+    )
+
+    if (!hasValidSelection) {
+      setSelectedChartFieldId(numericStatFields[0][0])
+    }
+  }, [numericStatFields, selectedChartFieldId])
+
   /* =========================================================
      8) Render
      ========================================================= */
@@ -848,9 +872,44 @@ async function loadStats() {
                    No field statistics available yet.
                  </div>
                )}
+               {numericStatFields.length > 0 && (
+                 <div
+                   style={{
+                     gridColumn: '1 / -1',
+                     display: 'grid',
+                     gap: 6,
+                   }}
+                 >
+                   <label style={{ fontSize: 13, fontWeight: 600 }}>
+                     Chart Field
+                   </label>
+                   <select
+                     value={selectedChartFieldId}
+                     onChange={(e) => setSelectedChartFieldId(e.target.value)}
+                     style={{
+                       height: 36,
+                       padding: '0 10px',
+                       borderRadius: 8,
+                       border: '1px solid rgba(0,0,0,0.18)',
+                       maxWidth: 280,
+                       background: 'white',
+                     }}
+                   >
+                     {numericStatFields.map(([fieldId, field]) => (
+                       <option key={fieldId} value={fieldId}>
+                         {field.label}
+                       </option>
+                     ))}
+                   </select>
+                 </div>
+               )}               
                {/* Numeric field statistics */}
                 {Object.entries(stats.fields).map(([fieldId, field]) => {
                   if (field.type !== 'number') {
+                    return null
+                  }
+
+                  if (selectedChartFieldId && fieldId !== selectedChartFieldId) {
                     return null
                   }
 

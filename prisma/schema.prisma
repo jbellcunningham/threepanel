@@ -20,26 +20,8 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  todos          TodoItem[]
-  trackers       TrackerItem[]
-  journalEntries JournalEntry[]
-  sessions       Session[]
-}
-
-model TodoItem {
-  id           String    @id @default(cuid())
-  userId       String
-  title        String
-  done         Boolean   @default(false)
-  dueAt        DateTime?
-  listPosition Int       @default(0)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([userId, done])
+  trackers TrackerItem[]
+  sessions Session[]
 }
 
 model TrackerItem {
@@ -73,20 +55,6 @@ model TrackerEntry {
   tracker TrackerItem @relation(fields: [trackerId], references: [id], onDelete: Cascade)
 
   @@index([trackerId])
-}
-
-model JournalEntry {
-  id        String   @id @default(cuid())
-  userId    String
-  entryDate DateTime
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, entryDate])
-  @@index([userId])
 }
 
 model Session {

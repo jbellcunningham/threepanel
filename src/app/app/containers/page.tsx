@@ -36,6 +36,7 @@ type ContainerSummary = {
 }
 
 type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'dropdown'
+type ListDisplayMode = 'none' | 'summary' | 'average'
 
 type TrackerField = {
   id: string
@@ -45,6 +46,7 @@ type TrackerField = {
   options?: string[]
   showInCards?: boolean
   showInList?: boolean
+  listDisplay?: ListDisplayMode
 }
 
 type TrackerSchema = {
@@ -64,6 +66,12 @@ type ContainerItem = {
     createdAt: string
     data?: Record<string, unknown> | null
   } | null
+  listPreview?: Array<{
+    fieldId: string
+    label: string
+    mode: 'summary' | 'average'
+    value: string | number
+  }>
   summary?: ContainerSummary
 }
 
@@ -150,82 +158,20 @@ function getContainerSummaryText(item: ContainerItem) {
   return `${entryCount} entries`
 }
 
-function getEffectiveSchema(item: ContainerItem): TrackerSchema | null {
-  if (item.schema?.fields?.length) {
-    return item.schema
-  }
-
-  if (item.type === 'todo') {
-    return {
-      version: 1,
-      fields: [
-        { id: 'title', label: 'Title', type: 'text', required: true },
-        { id: 'done', label: 'Done', type: 'boolean', required: true },
-        { id: 'due_at', label: 'Due Date', type: 'date' },
-        { id: 'notes', label: 'Notes', type: 'text' }
-      ]
-    }
-  }
-
-  if (item.type === 'journal') {
-    return {
-      version: 1,
-      fields: [
-        { id: 'recordedDate', label: 'Recorded Date', type: 'date', required: true },
-        { id: 'location', label: 'Location', type: 'dropdown' },
-        { id: 'textEntry', label: 'Text Entry', type: 'textarea', required: true }
-      ]
-    }
-  }
-
-  return item.schema ?? null
-}
-
-function getListDisplayFields(schema: TrackerSchema | null | undefined) {
-  if (!schema?.fields?.length) {
-    return []
-  }
-
-  const explicitlySelected = schema.fields.filter((field) => field.showInList)
-
-  if (explicitlySelected.length > 0) {
-    return explicitlySelected
-  }
-
-  const firstRequiredField = schema.fields.find((field) => field.required)
-  if (firstRequiredField) {
-    return [firstRequiredField]
-  }
-
-  return [schema.fields[0]]
-}
-
 function formatContainerListPreview(item: ContainerItem) {
-  const schema = getEffectiveSchema(item)
-  const entryData = item.latestEntry?.data ?? {}
-
-  if (!schema?.fields?.length || !item.latestEntry) {
+  if (!item.listPreview?.length) {
     return null
   }
 
-  const fieldsToUse = getListDisplayFields(schema)
-  const parts: string[] = []
-
-  for (const field of fieldsToUse) {
-    const value = entryData[field.id]
-
-    if (value === undefined || value === null || value === '') {
-      continue
+  const parts = item.listPreview.map((preview) => {
+    if (preview.mode === 'average') {
+      return `${preview.label} Avg: ${String(preview.value)}`
     }
 
-    parts.push(`${field.label}: ${String(value)}`)
-  }
+    return `${preview.label}: ${String(preview.value)}`
+  })
 
-  if (parts.length === 0) {
-    return null
-  }
-
-  return parts.join(' • ')
+  return parts.length > 0 ? parts.join(' • ') : null
 }
 
 function getFilterButtons(): FilterButton[] {

@@ -224,28 +224,7 @@ function hasExplicitListDisplayConfiguration(schema: TrackerSchema | null | unde
   )
 }
 
-function getListDisplayFields(schema: TrackerSchema | null | undefined) {
-  if (!schema?.fields?.length) {
-    return []
-  }
 
-  const explicitlySelected = schema.fields.filter((field) => getListDisplayMode(field) !== 'none')
-
-  if (explicitlySelected.length > 0) {
-    return explicitlySelected
-  }
-
-  if (hasExplicitListDisplayConfiguration(schema)) {
-    return []
-  }
-
-  const firstRequiredField = schema.fields.find((field) => field.required)
-  if (firstRequiredField) {
-    return [firstRequiredField]
-  }
-
-  return [schema.fields[0]]
-}
 
 function toNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {

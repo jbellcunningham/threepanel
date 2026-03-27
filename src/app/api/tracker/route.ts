@@ -39,6 +39,12 @@ type TrackerListItem = {
   type: string
   done: boolean
   createdAt: string
+  schema: TrackerSchema | null
+  latestEntry: {
+    id: string
+    createdAt: string
+    data: EntryDataRecord
+  } | null
   summary: Record<string, unknown>
 }
 
@@ -48,6 +54,23 @@ type ListEntry = {
   id: string
   createdAt: Date
   data: unknown
+}
+
+type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'dropdown'
+
+type TrackerField = {
+  id: string
+  label: string
+  type: TrackerFieldType
+  required?: boolean
+  options?: string[]
+  showInCards?: boolean
+  showInList?: boolean
+}
+
+type TrackerSchema = {
+  version?: number
+  fields: TrackerField[]
 }
 
 /* =========================================================
@@ -225,6 +248,7 @@ export async function GET() {
       type: true,
       done: true,
       createdAt: true,
+      schema: true,
       entries: {
         orderBy: {
           createdAt: 'desc'
@@ -245,6 +269,15 @@ export async function GET() {
     type: it.type,
     done: it.done,
     createdAt: it.createdAt.toISOString(),
+    schema: (it.schema ?? null) as TrackerSchema | null,
+    latestEntry:
+      it.entries.length > 0
+        ? {
+            id: it.entries[0].id,
+            createdAt: it.entries[0].createdAt.toISOString(),
+            data: getEntryDataRecord(it.entries[0].data)
+          }
+        : null,
     summary: buildSummary(it.type, it.entries)
   }))
 

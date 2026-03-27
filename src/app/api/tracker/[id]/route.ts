@@ -270,7 +270,7 @@ export async function DELETE(_req: Request, ctx: RouteCtx) {
 
   // (c) Ensure tracker exists and belongs to user
   const existing = await prisma.trackerItem.findFirst({
-    where: { id, userId: user.id, type: 'tracker' },
+    where: { id, userId: user.id },
     select: { id: true },
   })
 

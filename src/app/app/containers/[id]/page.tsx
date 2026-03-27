@@ -207,9 +207,35 @@ function buildEmptyFormData(schema: TrackerSchema | null | undefined) {
  * Builds a short summary string for each entry card using the
  * tracker schema order. This keeps the list compact and schema-driven.
  */
+function getDisplayFields(
+  schema: TrackerSchema | null | undefined,
+  mode: 'cards' | 'list'
+) {
+  if (!schema?.fields?.length) {
+    return []
+  }
+
+  const explicitlySelected =
+    mode === 'cards'
+      ? schema.fields.filter((field) => field.showInCards)
+      : schema.fields.filter((field) => field.showInList)
+
+  if (explicitlySelected.length > 0) {
+    return explicitlySelected
+  }
+
+  const firstRequiredField = schema.fields.find((field) => field.required)
+  if (firstRequiredField) {
+    return [firstRequiredField]
+  }
+
+  return [schema.fields[0]]
+}
+
 function formatEntrySummary(
   schema: TrackerSchema | null | undefined,
-  entry: TrackerEntry
+  entry: TrackerEntry,
+  mode: 'cards' | 'list' = 'cards'
 ) {
   const data = entry.data ?? {}
 
@@ -217,22 +243,17 @@ function formatEntrySummary(
     return '(empty entry)'
   }
 
-  // 1) prefer fields explicitly marked for cards
-  const cardFields = schema.fields.filter((f) => f.showInCards)
-
-  const fieldsToUse = cardFields.length > 0 ? cardFields : schema.fields
-
+  const fieldsToUse = getDisplayFields(schema, mode)
   const parts: string[] = []
 
   for (const field of fieldsToUse) {
     const value = data[field.id]
 
-    if (value === undefined || value === null || value === '') continue
+    if (value === undefined || value === null || value === '') {
+      continue
+    }
 
     parts.push(`${field.label}: ${String(value)}`)
-
-    // limit fallback case to 2 fields only
-    if (cardFields.length === 0 && parts.length >= 2) break
   }
 
   if (parts.length === 0) {

@@ -35,12 +35,35 @@ type ContainerSummary = {
   lastEntryAt?: string | null
 }
 
+type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'dropdown'
+
+type TrackerField = {
+  id: string
+  label: string
+  type: TrackerFieldType
+  required?: boolean
+  options?: string[]
+  showInCards?: boolean
+  showInList?: boolean
+}
+
+type TrackerSchema = {
+  version?: number
+  fields: TrackerField[]
+}
+
 type ContainerItem = {
   id: string
   title: string
   type: string
   done: boolean
   createdAt: string
+  schema?: TrackerSchema | null
+  latestEntry?: {
+    id: string
+    createdAt: string
+    data?: Record<string, unknown> | null
+  } | null
   summary?: ContainerSummary
 }
 
@@ -125,6 +148,84 @@ function getContainerSummaryText(item: ContainerItem) {
   }
 
   return `${entryCount} entries`
+}
+
+function getEffectiveSchema(item: ContainerItem): TrackerSchema | null {
+  if (item.schema?.fields?.length) {
+    return item.schema
+  }
+
+  if (item.type === 'todo') {
+    return {
+      version: 1,
+      fields: [
+        { id: 'title', label: 'Title', type: 'text', required: true },
+        { id: 'done', label: 'Done', type: 'boolean', required: true },
+        { id: 'due_at', label: 'Due Date', type: 'date' },
+        { id: 'notes', label: 'Notes', type: 'text' }
+      ]
+    }
+  }
+
+  if (item.type === 'journal') {
+    return {
+      version: 1,
+      fields: [
+        { id: 'recordedDate', label: 'Recorded Date', type: 'date', required: true },
+        { id: 'location', label: 'Location', type: 'dropdown' },
+        { id: 'textEntry', label: 'Text Entry', type: 'textarea', required: true }
+      ]
+    }
+  }
+
+  return item.schema ?? null
+}
+
+function getListDisplayFields(schema: TrackerSchema | null | undefined) {
+  if (!schema?.fields?.length) {
+    return []
+  }
+
+  const explicitlySelected = schema.fields.filter((field) => field.showInList)
+
+  if (explicitlySelected.length > 0) {
+    return explicitlySelected
+  }
+
+  const firstRequiredField = schema.fields.find((field) => field.required)
+  if (firstRequiredField) {
+    return [firstRequiredField]
+  }
+
+  return [schema.fields[0]]
+}
+
+function formatContainerListPreview(item: ContainerItem) {
+  const schema = getEffectiveSchema(item)
+  const entryData = item.latestEntry?.data ?? {}
+
+  if (!schema?.fields?.length || !item.latestEntry) {
+    return null
+  }
+
+  const fieldsToUse = getListDisplayFields(schema)
+  const parts: string[] = []
+
+  for (const field of fieldsToUse) {
+    const value = entryData[field.id]
+
+    if (value === undefined || value === null || value === '') {
+      continue
+    }
+
+    parts.push(`${field.label}: ${String(value)}`)
+  }
+
+  if (parts.length === 0) {
+    return null
+  }
+
+  return parts.join(' • ')
 }
 
 function getFilterButtons(): FilterButton[] {
@@ -567,6 +668,12 @@ export default function ContainersPage() {
                   <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
                     <em>{getContainerSummaryText(it)}</em>
                   </div>
+
+                  {formatContainerListPreview(it) && (
+                    <div style={{ marginTop: 6, fontSize: 12, opacity: 0.85 }}>
+                      {formatContainerListPreview(it)}
+                    </div>
+                  )}
 
                   <div style={{ fontSize: 12, opacity: 0.7 }}>
                     Created: {formatDate(it.createdAt)}

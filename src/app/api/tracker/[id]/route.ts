@@ -19,6 +19,7 @@ import { getCurrentUser } from '@/lib/auth'
    ========================================================= */
 
 type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'dropdown'
+type ListDisplayMode = 'none' | 'summary' | 'average'
 
 type TrackerField = {
   id: string
@@ -28,6 +29,7 @@ type TrackerField = {
   options?: string[]
   showInCards?: boolean
   showInList?: boolean
+  listDisplay?: ListDisplayMode
 }
 
 type TrackerSchema = {
@@ -79,6 +81,10 @@ function isValidFieldType(v: unknown): v is TrackerFieldType {
   )
 }
 
+function isValidListDisplayMode(v: unknown): v is ListDisplayMode {
+  return v === 'none' || v === 'summary' || v === 'average'
+}
+
 function validateSchema(schema: unknown): schema is TrackerSchema {
   if (!schema || typeof schema !== 'object') return false
 
@@ -113,6 +119,13 @@ function validateSchema(schema: unknown): schema is TrackerSchema {
       return false
     }
 
+    if (
+      field.listDisplay !== undefined &&
+      !isValidListDisplayMode(field.listDisplay)
+    ) {
+      return false
+    }
+
     if (field.type === 'dropdown') {
       if (field.options !== undefined && !Array.isArray(field.options)) {
         return false
@@ -138,7 +151,9 @@ function normalizeSchema(schema: TrackerSchema): TrackerSchema {
       type: field.type,
       required: Boolean(field.required),
       showInCards: Boolean(field.showInCards),
-      showInList: Boolean(field.showInList),
+      listDisplay:
+        field.listDisplay ??
+        (field.showInList ? 'summary' : 'none'),
       options:
         field.type === 'dropdown'
           ? (field.options ?? []).map((o) => o.trim()).filter(Boolean)

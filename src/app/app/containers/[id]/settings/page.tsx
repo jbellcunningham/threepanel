@@ -28,6 +28,7 @@ import { useEffect, useMemo, useState } from 'react'
    ========================================================= */
 
 type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'dropdown'
+type ListDisplayMode = 'none' | 'summary' | 'average'
 
 type TrackerField = {
   id: string
@@ -36,6 +37,7 @@ type TrackerField = {
   required?: boolean
   showInCards?: boolean
   showInList?: boolean
+  listDisplay?: ListDisplayMode
 }
 
 type EditableTrackerField = TrackerField & {
@@ -103,23 +105,27 @@ function makeDefaultField(index: number): EditableTrackerField {
     required: false,
     showInCards: false,
     showInList: false,
+    listDisplay: 'none',
   }
 }
 
 function toEditableFields(fields: TrackerField[]) {
   return fields.map((field) => ({
     ...field,
+    listDisplay:
+      field.listDisplay ??
+      (field.showInList ? 'summary' : 'none'),
     uid: makeUid(),
   }))
 }
 
 function toSchemaFields(fields: EditableTrackerField[]): TrackerField[] {
-  return fields.map(({ uid, ...field }) => ({
+  return fields.map(({ uid, showInList, ...field }) => ({
     ...field,
     id: field.id.trim(),
     label: field.label.trim(),
     showInCards: Boolean(field.showInCards),
-    showInList: Boolean(field.showInList),
+    listDisplay: field.listDisplay ?? 'none',
   }))
 }
 
@@ -562,17 +568,29 @@ export default function TrackerSettingsPage() {
                           fontSize: 13,
                         }}
                       >
-                        <input
-                          type="checkbox"
-                          checked={Boolean(field.showInList)}
+                        <span>Show in list</span>
+
+                        <select
+                          value={field.listDisplay ?? 'none'}
                           onChange={(e) =>
-                            updateField(field.uid, { showInList: e.target.checked })
+                            updateField(field.uid, {
+                              listDisplay: e.target.value as ListDisplayMode,
+                            })
                           }
-                        />
-                        Show in list
+                          style={{
+                            height: 28,
+                            padding: '0 8px',
+                            borderRadius: 6,
+                            border: '1px solid rgba(0,0,0,0.18)',
+                            background: 'white',
+                          }}
+                        >
+                          <option value="none">None</option>
+                          <option value="summary">Summary</option>
+                          <option value="average">Average</option>
+                        </select>
                       </label>
                     </div>
-
                     {field.type === 'dropdown' && (
                       <div style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>
                         Dropdown values are generated automatically from previous unique entries for

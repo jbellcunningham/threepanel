@@ -269,6 +269,14 @@ function getJournalEntryText(entry: TrackerEntry) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function shouldRenderJournalBody(
+  schema: TrackerSchema | null | undefined
+) {
+  const fieldsToUse = getDisplayFields(schema, 'cards')
+
+  return fieldsToUse.some((field) => field.id === 'textEntry')
+}
+
 
 /**
  * Collects prior unique values for a dropdown field from this tracker's entries.
@@ -1240,12 +1248,7 @@ async function loadStats() {
                     >
 
                       <div style={{ fontWeight: 700 }}>
-                        {item?.type === 'journal'
-                          ? (() => {
-                              const text = getJournalEntryText(entry)
-                              return text ? text.split('\n')[0] : formatEntrySummary(schema, entry)
-                            })()
-                          : formatEntrySummary(schema, entry)}
+                        {formatEntrySummary(schema, entry, 'cards')}
                       </div>
 
                       <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
@@ -1283,7 +1286,9 @@ async function loadStats() {
                       </div>
                     </div>
 
-                    {item?.type === 'journal' && getJournalEntryText(entry) ? (
+                    {item?.type === 'journal' &&
+                    shouldRenderJournalBody(schema) &&
+                    getJournalEntryText(entry) ? (
                       <div
                         style={{
                           marginTop: 8,

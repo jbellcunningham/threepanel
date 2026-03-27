@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { calculateTrackerStatistics } from '@/lib/trackerStatsCalculator'
 
 /**
  * Types
@@ -32,50 +33,31 @@ type TrackerSchema = {
   fields?: TrackerField[];
 };
 
-type NumericFieldStats = {
-  label: string;
-  type: "number";
-  count: number;
-  avg: number | null;
-  min: number | null;
-  max: number | null;
-  latest: number | null;
-};
-
-type DropdownFieldStats = {
-  label: string;
-  type: "dropdown";
-  count: number;
-  topValues: Array<{
-    value: string;
-    count: number;
-  }>;
-};
-
-type BooleanFieldStats = {
-  label: string;
-  type: "boolean";
-  count: number;
-  trueCount: number;
-  falseCount: number;
-};
-
-type TrackerFieldStats = NumericFieldStats | DropdownFieldStats | BooleanFieldStats;
-
-type TimeSeriesPoint = {
-  date: string;
-  value: number;
-};
-
-type TrackerTimeSeries = Record<string, TimeSeriesPoint[]>;
-
 type StatsResponse = {
   trackerId: string;
   trackerTitle: string;
   entryCount: number;
   lastEntryAt: string | null;
-  fields: Record<string, TrackerFieldStats>;
-  timeSeries: TrackerTimeSeries;
+  fields: Record<string, {
+    label: string;
+    type: "number" | "dropdown" | "boolean" | "text" | "textarea" | "date";
+    count?: number;
+    latest?: number | null;
+    sum?: number | null;
+    avg?: number | null;
+    min?: number | null;
+    max?: number | null;
+    trueCount?: number;
+    falseCount?: number;
+    topValues?: Array<{
+      value: string;
+      count: number;
+    }>;
+  }>;
+  timeSeries: Record<string, Array<{
+    date: string;
+    value: number;
+  }>>;
 };
 
 type RouteContext = {
@@ -217,7 +199,13 @@ export async function GET(_request: Request, context: RouteContext) {
     // 4) Parse schema
     const schema = parseSchema(tracker.schema);
 
-    // 5) Build stats response
+    // 5) Recalculate statistics from source-of-truth entries
+    const calculated = calculateTrackerStatistics(schema, tracker.entries.map((entry) => ({
+      id: entry.id,
+      createdAt: entry.createdAt,
+      data: isPlainObject(entry.data) ? entry.data : null,
+    })))
+
     const stats: StatsResponse = {
       trackerId: tracker.id,
       trackerTitle: tracker.title,
@@ -228,151 +216,33 @@ export async function GET(_request: Request, context: RouteContext) {
           : null,
       fields: {},
       timeSeries: {},
-    };
-
-    // 6) Compute stats by field type
-    for (const field of schema.fields ?? []) {
-      if (field.type === "number") {
-        const numericValues = tracker.entries
-          .map((entry) => getEntryFieldValue(entry.data, field.id))
-          .map((value) => toNumber(value))
-          .filter((value): value is number => value !== null);
-
-        const latest = [...tracker.entries]
-          .reverse()
-          .map((entry) => toNumber(getEntryFieldValue(entry.data, field.id)))
-          .find((value): value is number => value !== null);
-
-        const count = numericValues.length;
-        const sum = numericValues.reduce((total, value) => total + value, 0);
-
-        stats.fields[field.id] = {
-          label: field.label,
-          type: "number",
-          count,
-          avg: count > 0 ? roundNumber(sum / count) : null,
-          min: count > 0 ? roundNumber(Math.min(...numericValues)) : null,
-          max: count > 0 ? roundNumber(Math.max(...numericValues)) : null,
-          latest: latest !== undefined ? roundNumber(latest) : null,
-        };
-
-        // choose the first date field from the schema, if one exists
-        // current behavior: first schema date field drives the series x-axis
-        // fallback behavior: entry.createdAt when schema date is missing or invalid
-        const dateField = (schema.fields ?? []).find((f) => f.type === "date") ?? null;
-        const dateFieldId = dateField ? dateField.id : null;
-
-	stats.timeSeries[field.id] = tracker.entries
-	  .map((entry) => {
-	    // Try date value from the entry's own data first (if a date field exists)
-	    let pointDateIso: string;
-
-      if (dateFieldId) {
-        try {
-          const rawDate = (entry.data as any)?.[dateFieldId]
-
-          if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
-            pointDateIso = rawDate
-          } else {
-            const parsed = rawDate ? new Date(rawDate) : null
-
-            if (parsed && !isNaN(parsed.getTime())) {
-              pointDateIso = parsed.toISOString()
-            } else {
-              // fallback to createdAt if rawDate missing / invalid
-              pointDateIso = entry.createdAt.toISOString()
-            }
-          }
-        } catch {
-          // In case of any unexpected shape, fallback to createdAt
-          pointDateIso = entry.createdAt.toISOString()
-        }
-      } else {
-        // No date field in schema — always use createdAt
-        pointDateIso = entry.createdAt.toISOString()
-      }
-
-	    const numericValue = toNumber(getEntryFieldValue(entry.data, field.id));
-
-	    if (numericValue === null) {
-	      return null;
-	    }
-
-	    return {
-	      date: pointDateIso,
-	      value: numericValue,
-              createdAt: entry.createdAt.toISOString(),
-	    };
-	  })
-	  .filter((point): point is TimeSeriesPoint => point !== null)
-
-	.sort((a, b) => {
-	  const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
-
-	  if (dateDiff !== 0) {
-	    return dateDiff;
-	  }
-
-	  return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-	})
-	.map(({ date, value }) => ({
-	  date,
-	  value,
-	}));
-        continue;
-      }
-
-      if (field.type === "dropdown") {
-        const values = tracker.entries
-          .map((entry) => getEntryFieldValue(entry.data, field.id))
-          .map((value) => toNonEmptyString(value))
-          .filter((value): value is string => value !== null);
-
-        const valueCounts = new Map<string, number>();
-
-        for (const value of values) {
-          valueCounts.set(value, (valueCounts.get(value) ?? 0) + 1);
-        }
-
-        const topValues = Array.from(valueCounts.entries())
-          .map(([value, count]) => ({ value, count }))
-          .sort((a, b) => {
-            if (b.count !== a.count) {
-              return b.count - a.count;
-            }
-
-            return a.value.localeCompare(b.value);
-          });
-
-        stats.fields[field.id] = {
-          label: field.label,
-          type: "dropdown",
-          count: values.length,
-          topValues,
-        };
-
-        continue;
-      }
-
-      if (field.type === "boolean") {
-        const booleanValues = tracker.entries
-          .map((entry) => getEntryFieldValue(entry.data, field.id))
-          .map((value) => toBoolean(value))
-          .filter((value): value is boolean => value !== null);
-
-        const trueCount = booleanValues.filter((value) => value === true).length;
-        const falseCount = booleanValues.filter((value) => value === false).length;
-
-        stats.fields[field.id] = {
-          label: field.label,
-          type: "boolean",
-          count: booleanValues.length,
-          trueCount,
-          falseCount,
-        };
-      }
     }
 
+    for (const field of schema.fields ?? []) {
+      const fieldStats = calculated.fields[field.id]
+
+      if (!fieldStats) {
+        continue
+      }
+
+      stats.fields[field.id] = {
+        label: field.label,
+        type: field.type,
+        count: fieldStats.count,
+        latest: fieldStats.latest,
+        sum: fieldStats.sum,
+        avg: fieldStats.avg,
+        min: fieldStats.min,
+        max: fieldStats.max,
+        trueCount: fieldStats.trueCount,
+        falseCount: fieldStats.falseCount,
+        topValues: fieldStats.topValues,
+      }
+
+      if (fieldStats.timeSeries?.length) {
+        stats.timeSeries[field.id] = fieldStats.timeSeries
+      }
+    }
     return NextResponse.json(stats);
   } catch (error) {
     console.error("GET /api/tracker/[id]/stats error:", error);

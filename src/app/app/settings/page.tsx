@@ -32,6 +32,32 @@ type CreateUserForm = {
   role: CurrentUserRole
 }
 
+type DbTableListItem = {
+  name: string
+  estimatedRowCount: number | null
+}
+
+type DbColumn = {
+  name: string
+  dataType: string
+  isNullable: boolean
+}
+
+type DbInspectorTableResponse = {
+  ok: true
+  mode: 'table'
+  table: string
+  rowCount: number
+  columns: DbColumn[]
+  rows: Array<Record<string, unknown>>
+}
+
+type DbInspectorTablesResponse = {
+  ok: true
+  mode: 'tables'
+  tables: DbTableListItem[]
+}
+
 const STORAGE_KEY = 'threepanel_settings_v1'
 
 function loadSettings(): Settings {
@@ -67,6 +93,26 @@ function formatDate(iso: string) {
     return new Date(iso).toLocaleString()
   } catch {
     return iso
+  }
+}
+
+function formatDbCellValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return 'null'
+  }
+
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
   }
 }
 
@@ -135,6 +181,14 @@ export default function SettingsPage() {
   const [adminError, setAdminError] = useState<string | null>(null)
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
 
+  const [dbTables, setDbTables] = useState<DbTableListItem[]>([])
+  const [dbInspectorLoading, setDbInspectorLoading] = useState(false)
+  const [dbInspectorError, setDbInspectorError] = useState<string | null>(null)
+  const [selectedDbTable, setSelectedDbTable] = useState('')
+  const [dbColumns, setDbColumns] = useState<DbColumn[]>([])
+  const [dbRows, setDbRows] = useState<Array<Record<string, unknown>>>([])
+  const [dbRowCount, setDbRowCount] = useState<number | null>(null)
+
   useEffect(() => {
     const s = loadSettings()
     setSettings(s)
@@ -160,6 +214,22 @@ export default function SettingsPage() {
         setAdminUsersLoading(false)
       })
   }, [currentUser])
+
+  useEffect(() => {
+    if (currentUser?.role !== 'ADMIN' || !showAdminSection) {
+      return
+    }
+
+    loadDbTables()
+  }, [currentUser, showAdminSection])
+
+  useEffect(() => {
+    if (currentUser?.role !== 'ADMIN' || !showAdminSection || !selectedDbTable) {
+      return
+    }
+
+    loadDbTable(selectedDbTable)
+  }, [currentUser, showAdminSection, selectedDbTable])
 
   const canSave = useMemo(() => !!settings?.appTitle.trim(), [settings])
 
@@ -202,6 +272,84 @@ export default function SettingsPage() {
       setAdminUsers(users)
     } finally {
       setAdminUsersLoading(false)
+    }
+  }
+
+  async function loadDbTables() {
+    if (currentUser?.role !== 'ADMIN') {
+      return
+    }
+
+    setDbInspectorLoading(true)
+    setDbInspectorError(null)
+
+    try {
+      const res = await fetch('/api/admin/db', {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      const raw = await res.text()
+
+      let data: DbInspectorTablesResponse | { ok?: false; error?: string } | null = null
+      try {
+        data = raw ? JSON.parse(raw) : null
+      } catch {
+        data = null
+      }
+
+      if (!res.ok || !data || data.ok !== true || data.mode !== 'tables') {
+        setDbTables([])
+        setDbInspectorError((data as any)?.error || raw || 'Failed to load database tables')
+        return
+      }
+
+      setDbTables(data.tables)
+
+      if (data.tables.length > 0 && !selectedDbTable) {
+        setSelectedDbTable(data.tables[0].name)
+      }
+    } finally {
+      setDbInspectorLoading(false)
+    }
+  }
+
+  async function loadDbTable(tableName: string) {
+    if (currentUser?.role !== 'ADMIN' || !tableName) {
+      return
+    }
+
+    setDbInspectorLoading(true)
+    setDbInspectorError(null)
+
+    try {
+      const res = await fetch(`/api/admin/db?table=${encodeURIComponent(tableName)}`, {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      const raw = await res.text()
+
+      let data: DbInspectorTableResponse | { ok?: false; error?: string } | null = null
+      try {
+        data = raw ? JSON.parse(raw) : null
+      } catch {
+        data = null
+      }
+
+      if (!res.ok || !data || data.ok !== true || data.mode !== 'table') {
+        setDbColumns([])
+        setDbRows([])
+        setDbRowCount(null)
+        setDbInspectorError((data as any)?.error || raw || 'Failed to load table data')
+        return
+      }
+
+      setDbColumns(data.columns)
+      setDbRows(data.rows)
+      setDbRowCount(data.rowCount)
+    } finally {
+      setDbInspectorLoading(false)
     }
   }
 
@@ -481,7 +629,7 @@ export default function SettingsPage() {
           {showAdminSection && (
             <>
               <div style={{ fontSize: 13, opacity: 0.75, marginTop: 12, marginBottom: 12 }}>
-                User management for testing and administration.
+                User management and read-only database inspection for testing and administration.
               </div>
 
           <section
@@ -538,6 +686,139 @@ export default function SettingsPage() {
                 <span style={{ fontSize: 12, color: 'crimson' }}>{adminError}</span>
               )}
             </div>
+          </section>
+          <section
+            style={{
+              border: '1px solid rgba(0,0,0,0.10)',
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 16,
+              display: 'grid',
+              gap: 10,
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: 16 }}>Database Inspector</h3>
+
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <select
+                value={selectedDbTable}
+                onChange={(e) => setSelectedDbTable(e.target.value)}
+                style={{ padding: '10px 12px', minWidth: 240 }}
+              >
+                {dbTables.length === 0 ? (
+                  <option value="">No tables found</option>
+                ) : (
+                  dbTables.map((table) => (
+                    <option key={table.name} value={table.name}>
+                      {table.name}
+                      {typeof table.estimatedRowCount === 'number'
+                        ? ` (${table.estimatedRowCount})`
+                        : ''}
+                    </option>
+                  ))
+                )}
+              </select>
+
+              <button
+                type="button"
+                onClick={() => {
+                  loadDbTables()
+                  if (selectedDbTable) {
+                    loadDbTable(selectedDbTable)
+                  }
+                }}
+                style={{ height: 38, padding: '0 14px' }}
+              >
+                Refresh
+              </button>
+            </div>
+
+            {dbInspectorError && (
+              <div style={{ fontSize: 12, color: 'crimson' }}>{dbInspectorError}</div>
+            )}
+
+            {selectedDbTable && (
+              <div style={{ fontSize: 12, opacity: 0.75 }}>
+                Row count: {dbRowCount ?? '—'} • Showing up to 50 rows
+              </div>
+            )}
+
+            {dbColumns.length > 0 && (
+              <div style={{ display: 'grid', gap: 6 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>Columns</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {dbColumns.map((column) => (
+                    <div
+                      key={column.name}
+                      style={{
+                        border: '1px solid rgba(0,0,0,0.10)',
+                        borderRadius: 999,
+                        padding: '4px 8px',
+                        fontSize: 12,
+                      }}
+                    >
+                      {column.name} ({column.dataType}
+                      {column.isNullable ? ', nullable' : ', required'})
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {dbInspectorLoading ? (
+              <div>Loading database info...</div>
+            ) : dbRows.length === 0 ? (
+              <div style={{ opacity: 0.75 }}>No rows to display.</div>
+            ) : (
+              <div
+                style={{
+                  overflowX: 'auto',
+                  border: '1px solid rgba(0,0,0,0.10)',
+                  borderRadius: 8,
+                }}
+              >
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      {dbColumns.map((column) => (
+                        <th
+                          key={column.name}
+                          style={{
+                            textAlign: 'left',
+                            padding: '8px',
+                            borderBottom: '1px solid rgba(0,0,0,0.10)',
+                            background: 'rgba(0,0,0,0.03)',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {column.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dbRows.map((row, rowIndex) => (
+                      <tr key={rowIndex}>
+                        {dbColumns.map((column) => (
+                          <td
+                            key={column.name}
+                            style={{
+                              padding: '8px',
+                              borderBottom: '1px solid rgba(0,0,0,0.06)',
+                              verticalAlign: 'top',
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {formatDbCellValue(row[column.name])}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
 
           {adminUsersLoading ? (

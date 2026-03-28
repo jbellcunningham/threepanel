@@ -19,6 +19,8 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { defaultTrackerSchema } from '@/lib/trackerSchema'
+import { calculateTrackerStatistics } from '@/lib/trackerStatsCalculator'
+import type { TrackerStatistics } from '@/lib/trackerStats'
 
 /* =========================================================
    2) Types
@@ -74,7 +76,7 @@ type TrackerField = {
   options?: string[]
   showInCards?: boolean
   showInList?: boolean
-  listDisplay?: ListDisplayMode
+  listDisplay?: 'none' | 'latest' | 'summary' | 'average'
 }
 
 type TrackerSchema = {
@@ -179,6 +181,18 @@ function getEntryDataRecord(value: unknown): EntryDataRecord {
   return value as EntryDataRecord
 }
 
+function getListDisplayMode(field: TrackerField): 'none' | 'latest' | 'summary' | 'average' {
+  if (field.listDisplay) {
+    return field.listDisplay
+  }
+
+  if (field.showInList) {
+    return 'latest'
+  }
+
+  return 'none'
+}
+
 function getEffectiveSchema(type: string, schema: TrackerSchema | null | undefined): TrackerSchema | null {
   if (schema?.fields?.length) {
     return schema
@@ -208,10 +222,6 @@ function getEffectiveSchema(type: string, schema: TrackerSchema | null | undefin
   }
 
   return schema ?? null
-}
-
-function getListDisplayMode(field: TrackerField): ListDisplayMode {
-  return field.listDisplay ?? (field.showInList ? 'summary' : 'none')
 }
 
 function hasExplicitListDisplayConfiguration(schema: TrackerSchema | null | undefined) {
@@ -286,44 +296,9 @@ function toBoolean(value: unknown): boolean | null {
   return null
 }
 
-function formatListSummaryValue(field: TrackerField, entries: ListEntry[]): string | number | null {
+function formatLatestValue(field: TrackerField, entries: ListEntry[]): string | number | null {
   if (entries.length === 0) {
     return null
-  }
-
-  if (field.type === 'dropdown') {
-    const counts = new Map<string, number>()
-
-    for (const entry of entries) {
-      const value = toNonEmptyString(getEntryDataRecord(entry.data)[field.id])
-      if (!value) continue
-
-      counts.set(value, (counts.get(value) ?? 0) + 1)
-    }
-
-    const top = Array.from(counts.entries()).sort((a, b) => {
-      if (b[1] !== a[1]) return b[1] - a[1]
-      return a[0].localeCompare(b[0])
-    })[0]
-
-    return top ? top[0] : null
-  }
-
-  if (field.type === 'boolean') {
-    let trueCount = 0
-    let falseCount = 0
-
-    for (const entry of entries) {
-      const value = toBoolean(getEntryDataRecord(entry.data)[field.id])
-      if (value === true) trueCount += 1
-      if (value === false) falseCount += 1
-    }
-
-    if (trueCount === 0 && falseCount === 0) {
-      return null
-    }
-
-    return `${trueCount} true / ${falseCount} false`
   }
 
   for (const entry of entries) {
@@ -333,27 +308,14 @@ function formatListSummaryValue(field: TrackerField, entries: ListEntry[]): stri
       continue
     }
 
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value
+    }
+
     return String(value)
   }
 
   return null
-}
-
-function formatListAverageValue(field: TrackerField, entries: ListEntry[]): number | null {
-  if (field.type !== 'number') {
-    return null
-  }
-
-  const values = entries
-    .map((entry) => toNumber(getEntryDataRecord(entry.data)[field.id]))
-    .filter((value): value is number => value !== null)
-
-  if (values.length === 0) {
-    return null
-  }
-
-  const total = values.reduce((sum, value) => sum + value, 0)
-  return Number((total / values.length).toFixed(2))
 }
 
 function buildListPreview(
@@ -364,12 +326,26 @@ function buildListPreview(
   const effectiveSchema = getEffectiveSchema(type, schema)
   const fieldsToUse = getListDisplayFields(effectiveSchema)
 
+  const calculated: TrackerStatistics = calculateTrackerStatistics(
+    effectiveSchema,
+    entries.map((entry) => ({
+      id: entry.id,
+      createdAt: entry.createdAt,
+      data: getEntryDataRecord(entry.data),
+    }))
+  )
+
   return fieldsToUse
     .map((field) => {
       const mode = getListDisplayMode(field)
+      const fieldStats = calculated.fields[field.id]
 
-      if (mode === 'average') {
-        const value = formatListAverageValue(field, entries)
+      if (mode === 'none') {
+        return null
+      }
+
+      if (mode === 'latest') {
+        const value = formatLatestValue(field, entries)
         if (value === null) {
           return null
         }
@@ -377,25 +353,46 @@ function buildListPreview(
         return {
           fieldId: field.id,
           label: field.label,
-          mode: 'average' as const,
+          mode: 'summary' as const,
           value,
         }
       }
 
-      const value = formatListSummaryValue(field, entries)
-      if (value === null) {
+      if (field.type !== 'number' || !fieldStats) {
         return null
       }
 
-      return {
-        fieldId: field.id,
-        label: field.label,
-        mode: 'summary' as const,
-        value,
+      if (mode === 'summary') {
+        if (fieldStats.sum === null || fieldStats.sum === undefined) {
+          return null
+        }
+
+        return {
+          fieldId: field.id,
+          label: field.label,
+          mode: 'summary' as const,
+          value: fieldStats.sum,
+        }
       }
+
+      if (mode === 'average') {
+        if (fieldStats.avg === null || fieldStats.avg === undefined) {
+          return null
+        }
+
+        return {
+          fieldId: field.id,
+          label: field.label,
+          mode: 'average' as const,
+          value: fieldStats.avg,
+        }
+      }
+
+      return null
     })
     .filter((item): item is TrackerListItem['listPreview'][number] => item !== null)
 }
+
 
 function countOpenTodoEntries(entries: ListEntry[]) {
   let openCount = 0

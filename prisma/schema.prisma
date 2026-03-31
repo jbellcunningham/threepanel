@@ -10,6 +10,7 @@ enum UserRole {
   USER
   ADMIN
   TESTER
+  REPORTING
 }
 
 model User {
@@ -20,8 +21,9 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  trackers TrackerItem[]
-  sessions Session[]
+  trackers        TrackerItem[]
+  containerAccess ContainerAccess[]
+  sessions        Session[]
 }
 
 model TrackerItem {
@@ -36,8 +38,9 @@ model TrackerItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  entries TrackerEntry[]
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries         TrackerEntry[]
+  containerAccess ContainerAccess[]
 
   @@index([userId])
 }
@@ -55,6 +58,21 @@ model TrackerEntry {
   tracker TrackerItem @relation(fields: [trackerId], references: [id], onDelete: Cascade)
 
   @@index([trackerId])
+}
+
+model ContainerAccess {
+  id            String   @id @default(cuid())
+  userId        String
+  trackerItemId String
+  accessType    String   @default("read")
+  createdAt     DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackerItem TrackerItem @relation(fields: [trackerItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, trackerItemId, accessType])
+  @@index([userId])
+  @@index([trackerItemId])
 }
 
 model Session {

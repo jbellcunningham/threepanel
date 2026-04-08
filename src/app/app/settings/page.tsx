@@ -8,7 +8,8 @@ type CurrentUserRole = 'USER' | 'TESTER' | 'ADMIN' | 'REPORTING'
 type Settings = {
   appTitle: string
   theme: Theme
-  visibleSidebarTypes: string[]
+  hiddenSidebarTypes: string[]
+  visibleSidebarTypes?: string[]
 }
 
 type CurrentUser = {
@@ -96,6 +97,18 @@ type ContainerAccessResponse = {
 
 const STORAGE_KEY = 'threepanel_settings_v1'
 
+function formatContainerTypeLabel(value: string) {
+  if (value === 'tracker') return 'Tracker'
+  if (value === 'todo') return 'To-Do'
+  if (value === 'journal') return 'Journal'
+
+  return value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
 function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -104,11 +117,17 @@ function loadSettings(): Settings {
       return {
         appTitle: 'ThreePanel',
         theme: 'system',
-        visibleSidebarTypes: [],
+        hiddenSidebarTypes: [],
       }
     }
 
     const parsed = JSON.parse(raw) as Partial<Settings>
+
+    const hiddenSidebarTypes = Array.isArray(parsed.hiddenSidebarTypes)
+      ? parsed.hiddenSidebarTypes
+          .map((value) => String(value).trim().toLowerCase())
+          .filter(Boolean)
+      : []
 
     const visibleSidebarTypes = Array.isArray(parsed.visibleSidebarTypes)
       ? parsed.visibleSidebarTypes
@@ -122,13 +141,14 @@ function loadSettings(): Settings {
         parsed.theme === 'light' || parsed.theme === 'dark' || parsed.theme === 'system'
           ? parsed.theme
           : 'system',
+      hiddenSidebarTypes,
       visibleSidebarTypes,
     }
   } catch {
     return {
       appTitle: 'ThreePanel',
       theme: 'system',
-      visibleSidebarTypes: [],
+      hiddenSidebarTypes: [],
     }
   }
 }
@@ -291,6 +311,34 @@ export default function SettingsPage() {
   }, [])
 
   useEffect(() => {
+    if (!settings) return
+    if (availableSidebarTypes.length === 0) return
+    if (settings.hiddenSidebarTypes.length > 0) return
+    if (!settings.visibleSidebarTypes || settings.visibleSidebarTypes.length === 0) return
+
+    const normalizedAvailableTypes = availableSidebarTypes.map((value) =>
+      String(value).trim().toLowerCase()
+    )
+
+    const normalizedVisibleTypes = settings.visibleSidebarTypes.map((value) =>
+      String(value).trim().toLowerCase()
+    )
+
+    const migratedHiddenSidebarTypes = normalizedAvailableTypes.filter(
+      (type) => !normalizedVisibleTypes.includes(type)
+    )
+
+    setSettings((prev) =>
+      prev
+        ? {
+            ...prev,
+            hiddenSidebarTypes: migratedHiddenSidebarTypes,
+          }
+        : prev
+    )
+  }, [availableSidebarTypes, settings])
+
+  useEffect(() => {
     if (currentUser?.role !== 'ADMIN') {
       return
     }
@@ -347,23 +395,23 @@ export default function SettingsPage() {
     setSavedMsg(null)
   }
 
-  function toggleSidebarType(type: string) {
-    if (!settings) return
+function toggleSidebarType(type: string) {
+  if (!settings) return
 
-    const normalizedType = type.trim().toLowerCase()
-    const exists = settings.visibleSidebarTypes.includes(normalizedType)
+  const normalizedType = type.trim().toLowerCase()
+  const exists = settings.hiddenSidebarTypes.includes(normalizedType)
 
-    const nextVisibleSidebarTypes = exists
-      ? settings.visibleSidebarTypes.filter((value) => value !== normalizedType)
-      : [...settings.visibleSidebarTypes, normalizedType]
+  const nextHiddenSidebarTypes = exists
+    ? settings.hiddenSidebarTypes.filter((value) => value !== normalizedType)
+    : [...settings.hiddenSidebarTypes, normalizedType]
 
-    setSettings({
-      ...settings,
-      visibleSidebarTypes: nextVisibleSidebarTypes,
-    })
+  setSettings({
+    ...settings,
+    hiddenSidebarTypes: nextHiddenSidebarTypes,
+  })
 
-    setSavedMsg(null)
-  }
+  setSavedMsg(null)
+}
 
   function updateCreateUserForm<K extends keyof CreateUserForm>(
     key: K,
@@ -588,24 +636,30 @@ export default function SettingsPage() {
   }
 
 
-  function onSave() {
-    if (!settings) return
+function onSave() {
+  if (!settings) return
 
-    const cleaned: Settings = {
-      appTitle: settings.appTitle.trim() || 'ThreePanel',
-      theme: settings.theme,
-      visibleSidebarTypes:
-        settings.visibleSidebarTypes.length > 0
-          ? settings.visibleSidebarTypes
-          : ['tracker', 'todo', 'journal'],
-    }
+  const cleanedAvailableTypes = availableSidebarTypes
+    .map((value) => String(value).trim().toLowerCase())
+    .filter(Boolean)
 
-    saveSettings(cleaned)
-    window.dispatchEvent(new Event('threepanel-settings-changed'))
-    applyTheme(cleaned.theme)
-    setSavedMsg('Saved.')
-    window.setTimeout(() => setSavedMsg(null), 1200)
+  const cleanedHiddenSidebarTypes = settings.hiddenSidebarTypes
+    .map((value) => String(value).trim().toLowerCase())
+    .filter(Boolean)
+    .filter((value) => cleanedAvailableTypes.includes(value))
+
+  const cleaned: Settings = {
+    appTitle: settings.appTitle.trim() || 'ThreePanel',
+    theme: settings.theme,
+    hiddenSidebarTypes: cleanedHiddenSidebarTypes,
   }
+
+  saveSettings(cleaned)
+  window.dispatchEvent(new Event('threepanel-settings-changed'))
+  applyTheme(cleaned.theme)
+  setSavedMsg('Saved.')
+  window.setTimeout(() => setSavedMsg(null), 1200)
+}
 
   async function onCreateUser() {
     if (!canCreateUser) return
@@ -808,7 +862,8 @@ export default function SettingsPage() {
                 ) : (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {availableSidebarTypes.map((type) => {
-                      const selected = settings.visibleSidebarTypes.includes(type)
+                      const hidden = settings.hiddenSidebarTypes.includes(type)
+                      const selected = !hidden
 
                       return (
                         <button
@@ -823,7 +878,7 @@ export default function SettingsPage() {
                             fontWeight: selected ? 700 : 400,
                           }}
                         >
-                          {type}
+                          {formatContainerTypeLabel(type)}
                         </button>
                       )
                     })}
@@ -831,7 +886,7 @@ export default function SettingsPage() {
                 )}
 
                 <p style={{ fontSize: 12, opacity: 0.7, marginTop: 8 }}>
-                  Controls which built-in container type links appear in the left sidebar.
+                  Choose which container types appear in the left sidebar. By default, all existing types are shown. Click a type to hide or show it.
                 </p>
               </div>              
             </section>

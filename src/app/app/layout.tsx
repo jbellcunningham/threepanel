@@ -1,16 +1,36 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-const DEFAULT_VISIBLE_TYPES: string[] = []
-
-const STORAGE_KEY = 'threepanel_settings_v1'
+const SETTINGS_STORAGE_KEY = 'threepanel_settings_v1'
+const SHOW_ALL_STORAGE_KEY = 'threepanel_sidebar_show_all_types_v1'
 
 type StoredSettings = {
   appTitle?: string
   visibleSidebarTypes?: string[]
+  hiddenSidebarTypes?: string[]
+}
+
+function normalizeTypeList(values: unknown): string[] {
+  if (!Array.isArray(values)) return []
+
+  return values
+    .map((value) => String(value).trim().toLowerCase())
+    .filter(Boolean)
+}
+
+function toDisplayLabel(value: string) {
+  if (value === 'tracker') return 'Tracker'
+  if (value === 'todo') return 'To-Do'
+  if (value === 'journal') return 'Journal'
+
+  return value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
 }
 
 export default function AppLayout({
@@ -21,36 +41,43 @@ export default function AppLayout({
   const router = useRouter()
   const [title, setTitle] = useState('ThreePanel')
   const [availableTypes, setAvailableTypes] = useState<string[]>([])
-  const [visibleSidebarTypes, setVisibleSidebarTypes] = useState<string[]>([])
+  const [hiddenSidebarTypes, setHiddenSidebarTypes] = useState<string[]>([])
+  const [showAllContainerTypes, setShowAllContainerTypes] = useState(false)
 
   useEffect(() => {
     async function syncFromStorageAndTypes() {
       let nextTitle = 'ThreePanel'
-      let savedVisibleTypes: string[] = []
+      let savedHiddenTypes: string[] = []
+      let savedShowAll = false
+      let legacyVisibleTypes: string[] = []
 
-      const raw = localStorage.getItem(STORAGE_KEY)
+      const rawSettings = localStorage.getItem(SETTINGS_STORAGE_KEY)
+      const rawShowAll = localStorage.getItem(SHOW_ALL_STORAGE_KEY)
 
-      if (raw) {
+      if (rawShowAll === 'true') {
+        savedShowAll = true
+      }
+
+      if (rawSettings) {
         try {
-          const parsed = JSON.parse(raw) as StoredSettings
+          const parsed = JSON.parse(rawSettings) as StoredSettings
 
           nextTitle =
             typeof parsed.appTitle === 'string' && parsed.appTitle.trim()
               ? parsed.appTitle
               : 'ThreePanel'
 
-          savedVisibleTypes = Array.isArray(parsed.visibleSidebarTypes)
-            ? parsed.visibleSidebarTypes
-                .map((value) => String(value).trim().toLowerCase())
-                .filter(Boolean)
-            : []
+          savedHiddenTypes = normalizeTypeList(parsed.hiddenSidebarTypes)
+          legacyVisibleTypes = normalizeTypeList(parsed.visibleSidebarTypes)
         } catch {
           nextTitle = 'ThreePanel'
-          savedVisibleTypes = []
+          savedHiddenTypes = []
+          legacyVisibleTypes = []
         }
       }
 
       setTitle(nextTitle)
+      setShowAllContainerTypes(savedShowAll)
 
       try {
         const res = await fetch('/api/container-types', {
@@ -68,20 +95,18 @@ export default function AppLayout({
         }
 
         if (res.ok && data?.ok && Array.isArray(data.types)) {
-          const nextAvailableTypes = data.types
-            .map((value: unknown) => String(value).trim().toLowerCase())
-            .filter(Boolean)
+          const nextAvailableTypes = normalizeTypeList(data.types)
 
           setAvailableTypes(nextAvailableTypes)
 
-          const filteredVisibleTypes = savedVisibleTypes.filter((value) =>
-            nextAvailableTypes.includes(value)
-          )
+          const filteredHiddenTypes =
+            savedHiddenTypes.length > 0
+              ? savedHiddenTypes.filter((value) => nextAvailableTypes.includes(value))
+              : nextAvailableTypes.filter(
+                  (value) => legacyVisibleTypes.length > 0 && !legacyVisibleTypes.includes(value)
+                )
 
-          setVisibleSidebarTypes(
-            filteredVisibleTypes.length > 0 ? filteredVisibleTypes : nextAvailableTypes
-          )
-
+          setHiddenSidebarTypes(filteredHiddenTypes)
           return
         }
       } catch {
@@ -89,7 +114,7 @@ export default function AppLayout({
       }
 
       setAvailableTypes([])
-      setVisibleSidebarTypes(savedVisibleTypes)
+      setHiddenSidebarTypes(savedHiddenTypes)
     }
 
     syncFromStorageAndTypes()
@@ -99,7 +124,6 @@ export default function AppLayout({
       window.removeEventListener('threepanel-settings-changed', syncFromStorageAndTypes)
   }, [])
 
-
   async function logout() {
     await fetch('/api/auth/logout', {
       method: 'POST',
@@ -108,19 +132,25 @@ export default function AppLayout({
     router.push('/login')
   }
 
-  function getContainerTypeLinkTitle(type: string) {
-    if (type === 'tracker') return 'Tracker'
-    if (type === 'todo') return 'To-Do'
-    if (type === 'journal') return 'Journal'
-
-    return type
+  function toggleShowAllContainerTypes() {
+    const nextValue = !showAllContainerTypes
+    setShowAllContainerTypes(nextValue)
+    localStorage.setItem(SHOW_ALL_STORAGE_KEY, nextValue ? 'true' : 'false')
   }
+
+  const sidebarTypes = useMemo(() => {
+    if (showAllContainerTypes) {
+      return availableTypes
+    }
+
+    return availableTypes.filter((type) => !hiddenSidebarTypes.includes(type))
+  }, [availableTypes, hiddenSidebarTypes, showAllContainerTypes])
 
   const panels = [
     { href: '/app/containers', title: 'All Containers' },
-    ...visibleSidebarTypes.map((type) => ({
+    ...sidebarTypes.map((type) => ({
       href: `/app/containers?type=${encodeURIComponent(type)}`,
-      title: getContainerTypeLinkTitle(type),
+      title: toDisplayLabel(type),
     })),
     { href: '/app/reporting', title: 'Reporting' },
     { href: '/app/settings', title: 'Settings' },
@@ -136,7 +166,36 @@ export default function AppLayout({
         }}
       >
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontWeight: 700 }}>{title}</div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+            }}
+          >
+            <div style={{ fontWeight: 700 }}>{title}</div>
+            <button
+              type="button"
+              onClick={toggleShowAllContainerTypes}
+              style={{
+                height: 28,
+                padding: '0 8px',
+                borderRadius: 6,
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: showAllContainerTypes ? 'rgba(0,0,0,0.08)' : 'transparent',
+                cursor: 'pointer',
+                fontSize: 12,
+              }}
+              title={
+                showAllContainerTypes
+                  ? 'Showing all container types'
+                  : 'Override hidden type settings and show all container types'
+              }
+            >
+              All
+            </button>
+          </div>
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

@@ -77,6 +77,10 @@ type ContainerItem = {
 
 type BuiltInTemplateType = 'tracker' | 'todo' | 'journal'
 type CreateMode = 'template' | 'custom'
+type ContainerTypesResponse = {
+  ok: true
+  types: string[]
+}
 
 type FilterButton = {
   key: string
@@ -174,12 +178,14 @@ function formatContainerListPreview(item: ContainerItem) {
   return parts.length > 0 ? parts.join(' • ') : null
 }
 
-function getFilterButtons(): FilterButton[] {
+function getFilterButtons(types: string[]): FilterButton[] {
   return [
     { key: 'all', label: 'All', type: '' },
-    { key: 'tracker', label: 'Tracker', type: 'tracker' },
-    { key: 'todo', label: 'To-Do', type: 'todo' },
-    { key: 'journal', label: 'Journal', type: 'journal' }
+    ...types.map((type) => ({
+      key: type,
+      label: getContainerTypeDisplay(type).label,
+      type
+    }))
   ]
 }
 
@@ -196,9 +202,10 @@ export default function ContainersPage() {
      ----------------------------- */
 
   const [items, setItems] = useState<ContainerItem[]>([])
+  const [availableContainerTypes, setAvailableContainerTypes] = useState<string[]>([])
   const [title, setTitle] = useState('')
   const [createMode, setCreateMode] = useState<CreateMode>('template')
-  const [templateType, setTemplateType] = useState<BuiltInTemplateType>('tracker')
+  const [templateType, setTemplateType] = useState('tracker')
   const [customType, setCustomType] = useState('')
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -225,6 +232,18 @@ export default function ContainersPage() {
     [typeFilter]
   )
 
+  const templateTypeOptions = useMemo(() => {
+    const builtInTypes: string[] = ['tracker', 'todo', 'journal']
+    const customTypes = availableContainerTypes.filter((type) => !isBuiltInTemplateType(type))
+
+    return [...builtInTypes, ...customTypes]
+  }, [availableContainerTypes])
+
+  const filterButtons = useMemo(
+    () => getFilterButtons(availableContainerTypes),
+    [availableContainerTypes]
+  )
+
   const canAdd = useMemo(() => {
     if (!title.trim()) {
       return false
@@ -240,6 +259,35 @@ export default function ContainersPage() {
   /* =========================================================
      5) Data loaders
      ========================================================= */
+
+async function loadContainerTypes() {
+  try {
+    const res = await fetch('/api/container-types', {
+      credentials: 'include',
+      cache: 'no-store'
+    })
+
+    if (!res.ok) {
+      setAvailableContainerTypes([])
+      return
+    }
+
+    const data = (await res.json().catch(() => null)) as ContainerTypesResponse | null
+
+    if (!data?.ok || !Array.isArray(data.types)) {
+      setAvailableContainerTypes([])
+      return
+    }
+
+    setAvailableContainerTypes(
+      data.types
+        .map((value) => String(value).trim().toLowerCase())
+        .filter(Boolean)
+    )
+  } catch {
+    setAvailableContainerTypes([])
+  }
+}
 
   async function load() {
     setError(null)
@@ -262,6 +310,7 @@ export default function ContainersPage() {
     }
 
     setItems(data.items ?? [])
+    await loadContainerTypes()
     setLoading(false)
   }
 
@@ -280,12 +329,19 @@ export default function ContainersPage() {
     setCreating(true)
     setError(null)
 
+    const normalizedTemplateType = templateType.trim().toLowerCase()
+
     const payload =
       createMode === 'template'
-        ? {
-            title: t,
-            templateType
-          }
+        ? isBuiltInTemplateType(normalizedTemplateType)
+          ? {
+              title: t,
+              templateType: normalizedTemplateType
+            }
+          : {
+              title: t,
+              customType: normalizedTemplateType
+            }
         : {
             title: t,
             customType: customType.trim()
@@ -425,7 +481,7 @@ export default function ContainersPage() {
         }}
       >
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {getFilterButtons().map((button) => {
+          {filterButtons.map((button) => {
           const isActive = typeFilter === button.type
 
           return (
@@ -454,7 +510,7 @@ export default function ContainersPage() {
               const next = !prev
 
               if (next) {
-                if (isBuiltInTemplateType(typeFilter)) {
+                if (typeFilter) {
                   setCreateMode('template')
                   setTemplateType(typeFilter)
                 }
@@ -530,12 +586,14 @@ export default function ContainersPage() {
         {createMode === 'template' ? (
           <select
             value={templateType}
-            onChange={(e) => setTemplateType(e.target.value as BuiltInTemplateType)}
+            onChange={(e) => setTemplateType(e.target.value)}
             style={{ padding: '10px 12px' }}
           >
-            <option value="tracker">Tracker</option>
-            <option value="todo">Todo</option>
-            <option value="journal">Journal</option>
+            {templateTypeOptions.map((type) => (
+              <option key={type} value={type}>
+                {getContainerTypeDisplay(type).label}
+              </option>
+            ))}
           </select>
         ) : (
           <input

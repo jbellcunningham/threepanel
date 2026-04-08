@@ -43,6 +43,8 @@ export default function AppLayout({
   const [availableTypes, setAvailableTypes] = useState<string[]>([])
   const [hiddenSidebarTypes, setHiddenSidebarTypes] = useState<string[]>([])
   const [showAllContainerTypes, setShowAllContainerTypes] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
     async function syncFromStorageAndTypes() {
@@ -121,6 +123,17 @@ export default function AppLayout({
       window.removeEventListener('threepanel-settings-changed', syncFromStorageAndTypes)
   }, [])
 
+  useEffect(() => {
+    function syncViewport() {
+      setIsMobile(window.innerWidth <= 768)
+    }
+
+    syncViewport()
+    window.addEventListener('resize', syncViewport)
+
+    return () => window.removeEventListener('resize', syncViewport)
+  }, [])
+
   async function logout() {
     await fetch('/api/auth/logout', {
       method: 'POST',
@@ -152,33 +165,42 @@ export default function AppLayout({
     { href: '/app/settings', title: 'Settings' },
   ]
 
+    function handleNavLinkClick() {
+    if (isMobile) {
+      setMobileNavOpen(false)
+    }
+  }
+
   return (
     <div
       style={{
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: isMobile ? 'column' : 'row',
         minHeight: '100vh',
       }}
     >
       <aside
         style={{
-          width: '100%',
-          borderRight: 'none',
-          borderBottom: '1px solid rgba(0,0,0,0.12)',
+          width: isMobile ? '100%' : 240,
+          borderRight: isMobile ? 'none' : '1px solid rgba(0,0,0,0.12)',
+          borderBottom: isMobile ? '1px solid rgba(0,0,0,0.12)' : 'none',
           padding: 16,
           boxSizing: 'border-box',
+          flexShrink: 0,
         }}
       >
-        <div style={{ marginBottom: 16 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 8,
-            }}
-          >
-            <div style={{ fontWeight: 700 }}>{title}</div>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+            marginBottom: mobileNavOpen || !isMobile ? 16 : 0,
+          }}
+        >
+          <div style={{ fontWeight: 700 }}>{title}</div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
               type="button"
               onClick={toggleShowAllContainerTypes}
@@ -199,42 +221,70 @@ export default function AppLayout({
             >
               All
             </button>
+
+            {isMobile ? (
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen((prev) => !prev)}
+                style={{
+                  height: 32,
+                  width: 32,
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: 18,
+                  lineHeight: '18px',
+                }}
+                title={mobileNavOpen ? 'Hide menu' : 'Show menu'}
+              >
+                {mobileNavOpen ? '×' : '☰'}
+              </button>
+            ) : null}
           </div>
         </div>
 
-        <nav
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 8,
-          }}
-        >
-          {panels.map((p) => (
-            <Link
-              key={p.href}
-              href={p.href}
+        {(!isMobile || mobileNavOpen) && (
+          <>
+            <nav
               style={{
-                padding: '10px 12px',
-                borderRadius: 8,
-                textDecoration: 'none',
-                border: '1px solid rgba(0,0,0,0.10)',
-                display: 'inline-flex',
-                alignItems: 'center',
+                display: 'flex',
+                flexDirection: isMobile ? 'column' : 'column',
+                gap: 8,
               }}
             >
-              {p.title}
-            </Link>
-          ))}
-        </nav>
+              {panels.map((p) => (
+                <Link
+                  key={p.href}
+                  href={p.href}
+                  onClick={handleNavLinkClick}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    textDecoration: 'none',
+                    border: '1px solid rgba(0,0,0,0.10)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  {p.title}
+                </Link>
+              ))}
+            </nav>
 
-        <div style={{ marginTop: 16 }}>
-          <button
-            onClick={logout}
-            style={{ width: '100%', maxWidth: 220, height: 36 }}
-          >
-            Logout
-          </button>
-        </div>
+            <div style={{ marginTop: 16 }}>
+              <button
+                onClick={logout}
+                style={{
+                  width: '100%',
+                  height: 36,
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          </>
+        )}
       </aside>
 
       <main
@@ -243,6 +293,7 @@ export default function AppLayout({
           padding: 16,
           boxSizing: 'border-box',
           width: '100%',
+          minWidth: 0,
         }}
       >
         {children}

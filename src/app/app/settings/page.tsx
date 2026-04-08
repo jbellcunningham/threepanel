@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 type Theme = 'system' | 'light' | 'dark'
-type CurrentUserRole = 'USER' | 'TESTER' | 'ADMIN'
+type CurrentUserRole = 'USER' | 'TESTER' | 'ADMIN' | 'REPORTING'
 
 type Settings = {
   appTitle: string
@@ -56,6 +56,36 @@ type DbInspectorTablesResponse = {
   ok: true
   mode: 'tables'
   tables: DbTableListItem[]
+}
+
+type ContainerAccessUser = {
+  id: string
+  email: string
+  role: CurrentUserRole
+}
+
+type ContainerAccessContainer = {
+  id: string
+  title: string
+  type: string
+  userId: string
+  ownerEmail: string
+  createdAt: string
+}
+
+type ContainerAccessGrant = {
+  id: string
+  userId: string
+  trackerItemId: string
+  accessType: string
+  createdAt: string
+}
+
+type ContainerAccessResponse = {
+  ok: true
+  users: ContainerAccessUser[]
+  containers: ContainerAccessContainer[]
+  access: ContainerAccessGrant[]
 }
 
 const STORAGE_KEY = 'threepanel_settings_v1'
@@ -189,6 +219,13 @@ export default function SettingsPage() {
   const [dbRows, setDbRows] = useState<Array<Record<string, unknown>>>([])
   const [dbRowCount, setDbRowCount] = useState<number | null>(null)
 
+  const [accessUsers, setAccessUsers] = useState<ContainerAccessUser[]>([])
+  const [accessContainers, setAccessContainers] = useState<ContainerAccessContainer[]>([])
+  const [accessGrants, setAccessGrants] = useState<ContainerAccessGrant[]>([])
+  const [accessLoading, setAccessLoading] = useState(false)
+  const [selectedAccessUserId, setSelectedAccessUserId] = useState('')
+  const [selectedAccessContainerId, setSelectedAccessContainerId] = useState('')
+
   useEffect(() => {
     const s = loadSettings()
     setSettings(s)
@@ -230,6 +267,14 @@ export default function SettingsPage() {
 
     loadDbTable(selectedDbTable)
   }, [currentUser, showAdminSection, selectedDbTable])
+
+  useEffect(() => {
+    if (currentUser?.role !== 'ADMIN' || !showAdminSection) {
+      return
+    }
+
+    loadContainerAccess()
+  }, [currentUser, showAdminSection])
 
   const canSave = useMemo(() => !!settings?.appTitle.trim(), [settings])
 
@@ -352,6 +397,124 @@ export default function SettingsPage() {
       setDbInspectorLoading(false)
     }
   }
+
+  async function loadContainerAccess() {
+    if (currentUser?.role !== 'ADMIN') {
+      return
+    }
+
+    setAccessLoading(true)
+    setAdminError(null)
+
+    try {
+      const res = await fetch('/api/admin/container-access', {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      const raw = await res.text()
+
+      let data: ContainerAccessResponse | { ok?: false; error?: string } | null = null
+      try {
+        data = raw ? JSON.parse(raw) : null
+      } catch {
+        data = null
+      }
+
+      if (!res.ok || !data || data.ok !== true) {
+        setAccessUsers([])
+        setAccessContainers([])
+        setAccessGrants([])
+        setAdminError((data as any)?.error || raw || 'Failed to load container access')
+        return
+      }
+
+      setAccessUsers(data.users)
+      setAccessContainers(data.containers)
+      setAccessGrants(data.access)
+
+      if (data.users.length > 0 && !selectedAccessUserId) {
+        setSelectedAccessUserId(data.users[0].id)
+      }
+
+      if (data.containers.length > 0 && !selectedAccessContainerId) {
+        setSelectedAccessContainerId(data.containers[0].id)
+      }
+    } finally {
+      setAccessLoading(false)
+    }
+  }
+
+  async function grantContainerReadAccess() {
+    if (!selectedAccessUserId || !selectedAccessContainerId) {
+      return
+    }
+
+    setAdminMsg(null)
+    setAdminError(null)
+
+    const res = await fetch('/api/admin/container-access', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: selectedAccessUserId,
+        trackerItemId: selectedAccessContainerId,
+        accessType: 'read',
+      }),
+    })
+
+    const raw = await res.text()
+
+    let data: any = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok || !data?.ok) {
+      setAdminError(data?.error || raw || 'Failed to grant container access')
+      return
+    }
+
+    setAdminMsg('Container access granted.')
+    await loadContainerAccess()
+  }
+
+  async function revokeContainerReadAccess(userId: string, trackerItemId: string) {
+    setAdminMsg(null)
+    setAdminError(null)
+
+    const res = await fetch('/api/admin/container-access', {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        trackerItemId,
+        accessType: 'read',
+      }),
+    })
+
+    const raw = await res.text()
+
+    let data: any = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok || !data?.ok) {
+      setAdminError(data?.error || raw || 'Failed to revoke container access')
+      return
+    }
+
+    setAdminMsg('Container access revoked.')
+    await loadContainerAccess()
+  }
+
 
   function onSave() {
     if (!settings) return
@@ -669,6 +832,7 @@ export default function SettingsPage() {
               <option value="USER">USER</option>
               <option value="TESTER">TESTER</option>
               <option value="ADMIN">ADMIN</option>
+              <option value="REPORTING">REPORTING</option>
             </select>
 
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -821,6 +985,108 @@ export default function SettingsPage() {
             )}
           </section>
 
+          <section
+            style={{
+              border: '1px solid rgba(0,0,0,0.10)',
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 16,
+              display: 'grid',
+              gap: 10,
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: 16 }}>Container Access</h3>
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <select
+                value={selectedAccessUserId}
+                onChange={(e) => setSelectedAccessUserId(e.target.value)}
+                style={{ padding: '10px 12px', minWidth: 220 }}
+              >
+                {accessUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.email} ({user.role})
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedAccessContainerId}
+                onChange={(e) => setSelectedAccessContainerId(e.target.value)}
+                style={{ padding: '10px 12px', minWidth: 260 }}
+              >
+                {accessContainers.map((container) => (
+                  <option key={container.id} value={container.id}>
+                    {container.title} ({container.type}) — {container.ownerEmail}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={grantContainerReadAccess}
+                style={{ height: 38, padding: '0 14px' }}
+              >
+                Grant Read Access
+              </button>
+            </div>
+
+            {accessLoading ? (
+              <div>Loading container access...</div>
+            ) : accessGrants.length === 0 ? (
+              <div style={{ opacity: 0.75 }}>No container access grants yet.</div>
+            ) : (
+              <div style={{ display: 'grid', gap: 8 }}>
+                {accessGrants.map((grant) => {
+                  const user = accessUsers.find((item) => item.id === grant.userId)
+                  const container = accessContainers.find((item) => item.id === grant.trackerItemId)
+
+                  return (
+                    <div
+                      key={grant.id}
+                      style={{
+                        border: '1px solid rgba(0,0,0,0.10)',
+                        borderRadius: 8,
+                        padding: 10,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 700 }}>
+                          {user?.email || grant.userId}
+                        </div>
+                        <div style={{ fontSize: 12, opacity: 0.75 }}>
+                          {container?.title || grant.trackerItemId} • {grant.accessType}
+                        </div>
+                        <div style={{ fontSize: 12, opacity: 0.75 }}>
+                          Granted: {formatDate(grant.createdAt)}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => revokeContainerReadAccess(grant.userId, grant.trackerItemId)}
+                        style={{
+                          height: 32,
+                          padding: '0 10px',
+                          borderRadius: 8,
+                          border: '1px solid rgba(0,0,0,0.12)',
+                          background: 'transparent',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Revoke
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+
           {adminUsersLoading ? (
             <div>Loading users...</div>
           ) : adminUsers.length === 0 ? (
@@ -859,6 +1125,7 @@ export default function SettingsPage() {
                       <option value="USER">USER</option>
                       <option value="TESTER">TESTER</option>
                       <option value="ADMIN">ADMIN</option>
+                      <option value="REPORTING">REPORTING</option>
                     </select>
                     <button
                       type="button"

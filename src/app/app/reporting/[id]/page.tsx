@@ -19,6 +19,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
+import { buildReportingTable } from '@/lib/reportingTable'
 
 /* =========================================================
    2) Types
@@ -66,16 +67,31 @@ function getContainerIdFromPathname(pathname: string) {
   return parts[parts.length - 1] || ''
 }
 
-function formatEntryData(data: Record<string, unknown> | null | undefined) {
-  if (!data) {
-    return '{}'
+function formatCellValue(value: string) {
+  return value || '—'
+}
+
+function escapeCsvValue(value: string) {
+  if (value.includes('"') || value.includes(',') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`
   }
 
-  try {
-    return JSON.stringify(data, null, 2)
-  } catch {
-    return '{}'
-  }
+  return value
+}
+
+function buildCsvContent(
+  columns: Array<{ key: string; label: string }>,
+  rows: Array<Record<string, string>>
+) {
+  const header = columns.map((column) => escapeCsvValue(column.label)).join(',')
+
+  const lines = rows.map((row) =>
+    columns
+      .map((column) => escapeCsvValue(row[column.key] ?? ''))
+      .join(',')
+  )
+
+  return [header, ...lines].join('\n')
 }
 
 /* =========================================================
@@ -90,6 +106,36 @@ export default function ReportingContainerDetailPage() {
   const [entries, setEntries] = useState<ReportingEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const reportingTable = useMemo(() => {
+    return buildReportingTable(item?.schema, entries)
+  }, [item, entries])
+
+  function exportCsv() {
+    if (!item) {
+      return
+    }
+
+    const csv = buildCsvContent(reportingTable.columns, reportingTable.rows)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+
+    const safeTitle = item.title
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'report'
+
+    const datePart = new Date().toISOString().slice(0, 10)
+
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${safeTitle}-${datePart}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   /* =========================================================
      5) Data loader
@@ -159,9 +205,29 @@ export default function ReportingContainerDetailPage() {
           ← Back to Reporting
         </Link>
 
-        <h1 style={{ marginTop: 8, marginBottom: 6 }}>
-          {item ? item.title : 'Reporting Container'}
-        </h1>
+        <div
+          style={{
+            marginTop: 8,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <h1 style={{ marginTop: 0, marginBottom: 6 }}>
+            {item ? item.title : 'Reporting Container'}
+          </h1>
+
+          <button
+            type="button"
+            onClick={exportCsv}
+            disabled={!item || reportingTable.rows.length === 0}
+            style={{ height: 36, padding: '0 12px' }}
+          >
+            Export CSV
+          </button>
+        </div>
 
         {item && (
           <>
@@ -222,45 +288,58 @@ export default function ReportingContainerDetailPage() {
           </section>
 
           <section style={{ marginTop: 18 }}>
-            <h2 style={{ fontSize: 16, marginBottom: 8 }}>Entries</h2>
+            <h2 style={{ fontSize: 16, marginBottom: 8 }}>Report Table</h2>
 
             {entries.length === 0 ? (
               <div style={{ opacity: 0.75 }}>No entries found.</div>
             ) : (
-              <div style={{ display: 'grid', gap: 10 }}>
-                {entries.map((entry) => (
-                  <div
-                    key={entry.id}
-                    style={{
-                      border: '1px solid rgba(0,0,0,0.12)',
-                      borderRadius: 12,
-                      padding: 12,
-                    }}
-                  >
-                    <div style={{ fontSize: 12, opacity: 0.75 }}>
-                      Created: {formatDate(entry.createdAt)}
-                    </div>
-
-                    <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
-                      Updated: {formatDate(entry.updatedAt)}
-                    </div>
-
-                    <pre
-                      style={{
-                        marginTop: 10,
-                        padding: 10,
-                        borderRadius: 8,
-                        background: 'rgba(0,0,0,0.04)',
-                        overflowX: 'auto',
-                        fontSize: 12,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {formatEntryData(entry.data)}
-                    </pre>
-                  </div>
-                ))}
+              <div
+                style={{
+                  overflowX: 'auto',
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  borderRadius: 12,
+                }}
+              >
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      {reportingTable.columns.map((column) => (
+                        <th
+                          key={column.key}
+                          style={{
+                            textAlign: 'left',
+                            padding: '10px',
+                            borderBottom: '1px solid rgba(0,0,0,0.10)',
+                            background: 'rgba(0,0,0,0.03)',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {column.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportingTable.rows.map((row, rowIndex) => (
+                      <tr key={rowIndex}>
+                        {reportingTable.columns.map((column) => (
+                          <td
+                            key={column.key}
+                            style={{
+                              padding: '10px',
+                              borderBottom: '1px solid rgba(0,0,0,0.06)',
+                              verticalAlign: 'top',
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {formatCellValue(row[column.key])}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </section>

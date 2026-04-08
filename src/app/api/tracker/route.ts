@@ -50,7 +50,7 @@ type TrackerListItem = {
   listPreview: Array<{
     fieldId: string
     label: string
-    mode: 'summary' | 'average'
+    mode: 'latest' | 'summary' | 'average'
     value: string | number
   }>
   summary: Record<string, unknown>
@@ -182,15 +182,7 @@ function getEntryDataRecord(value: unknown): EntryDataRecord {
 }
 
 function getListDisplayMode(field: TrackerField): 'none' | 'latest' | 'summary' | 'average' {
-  if (field.listDisplay) {
-    return field.listDisplay
-  }
-
-  if (field.showInList) {
-    return 'latest'
-  }
-
-  return 'none'
+  return field.listDisplay ?? 'none'
 }
 
 function getEffectiveSchema(type: string, schema: TrackerSchema | null | undefined): TrackerSchema | null {
@@ -224,37 +216,12 @@ function getEffectiveSchema(type: string, schema: TrackerSchema | null | undefin
   return schema ?? null
 }
 
-function hasExplicitListDisplayConfiguration(schema: TrackerSchema | null | undefined) {
-  if (!schema?.fields?.length) {
-    return false
-  }
-
-  return schema.fields.some(
-    (field) => field.listDisplay !== undefined || field.showInList !== undefined
-  )
-}
-
 function getListDisplayFields(schema: TrackerSchema | null | undefined) {
   if (!schema?.fields?.length) {
     return []
   }
 
-  const explicitlySelected = schema.fields.filter((field) => getListDisplayMode(field) !== 'none')
-
-  if (explicitlySelected.length > 0) {
-    return explicitlySelected
-  }
-
-  if (hasExplicitListDisplayConfiguration(schema)) {
-    return []
-  }
-
-  const firstRequiredField = schema.fields.find((field) => field.required)
-  if (firstRequiredField) {
-    return [firstRequiredField]
-  }
-
-  return [schema.fields[0]]
+  return schema.fields.filter((field) => getListDisplayMode(field) !== 'none')
 }
 
 function toNumber(value: unknown): number | null {
@@ -353,7 +320,7 @@ function buildListPreview(
         return {
           fieldId: field.id,
           label: field.label,
-          mode: 'summary' as const,
+          mode: 'latest' as const,
           value,
         }
       }

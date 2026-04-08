@@ -36,7 +36,7 @@ type ContainerSummary = {
 }
 
 type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'dropdown'
-type ListDisplayMode = 'none' | 'summary' | 'average'
+type ListDisplayMode = 'none' | 'latest' | 'summary' | 'average'
 
 type TrackerField = {
   id: string
@@ -69,7 +69,7 @@ type ContainerItem = {
   listPreview?: Array<{
     fieldId: string
     label: string
-    mode: 'summary' | 'average'
+    mode: 'latest' | 'summary' | 'average'
     value: string | number
   }>
   summary?: ContainerSummary
@@ -170,6 +170,10 @@ function formatContainerListPreview(item: ContainerItem) {
   const parts = item.listPreview.map((preview) => {
     if (preview.mode === 'average') {
       return `${preview.label} Avg: ${String(preview.value)}`
+    }
+
+    if (preview.mode === 'summary') {
+      return `${preview.label}: ${String(preview.value)}`
     }
 
     return `${preview.label}: ${String(preview.value)}`

@@ -99,12 +99,9 @@ export default function AppLayout({
 
           setAvailableTypes(nextAvailableTypes)
 
-          const filteredHiddenTypes =
-            savedHiddenTypes.length > 0
-              ? savedHiddenTypes.filter((value) => nextAvailableTypes.includes(value))
-              : nextAvailableTypes.filter(
-                  (value) => legacyVisibleTypes.length > 0 && !legacyVisibleTypes.includes(value)
-                )
+          const filteredHiddenTypes = savedHiddenTypes.filter((value) =>
+            nextAvailableTypes.includes(value)
+          )
 
           setHiddenSidebarTypes(filteredHiddenTypes)
           return
@@ -147,7 +144,6 @@ export default function AppLayout({
   }, [availableTypes, hiddenSidebarTypes, showAllContainerTypes])
 
   const panels = [
-    { href: '/app/containers', title: 'All Containers' },
     ...sidebarTypes.map((type) => ({
       href: `/app/containers?type=${encodeURIComponent(type)}`,
       title: toDisplayLabel(type),

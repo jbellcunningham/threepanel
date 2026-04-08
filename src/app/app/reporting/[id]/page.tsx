@@ -67,6 +67,14 @@ function getContainerIdFromPathname(pathname: string) {
   return parts[parts.length - 1] || ''
 }
 
+function toDateInputValue(iso: string) {
+  try {
+    return new Date(iso).toISOString().slice(0, 10)
+  } catch {
+    return ''
+  }
+}
+
 function formatCellValue(value: string) {
   return value || '—'
 }
@@ -107,9 +115,28 @@ export default function ReportingContainerDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+
+  const filteredEntries = useMemo(() => {
+    return entries.filter((entry) => {
+      const entryDate = toDateInputValue(entry.createdAt)
+
+      if (fromDate && entryDate < fromDate) {
+        return false
+      }
+
+      if (toDate && entryDate > toDate) {
+        return false
+      }
+
+      return true
+    })
+  }, [entries, fromDate, toDate])
+
   const reportingTable = useMemo(() => {
-    return buildReportingTable(item?.schema, entries)
-  }, [item, entries])
+    return buildReportingTable(item?.schema, filteredEntries)
+  }, [item, filteredEntries])
 
   function exportCsv() {
     if (!item) {
@@ -169,8 +196,32 @@ export default function ReportingContainerDetailPage() {
       return
     }
 
-    setItem(data.item ?? null)
-    setEntries(data.entries ?? [])
+    const nextItem = data.item ?? null
+    const nextEntries = data.entries ?? []
+
+    setItem(nextItem)
+    setEntries(nextEntries)
+
+    // initialize date filters (optional but helpful)
+    if (nextEntries.length > 0) {
+      const sortedDates = [...nextEntries]
+        .map((entry: ReportingEntry) => toDateInputValue(entry.createdAt))
+        .filter(Boolean)
+        .sort()
+
+      if (sortedDates.length > 0) {
+        // leave filters empty by default (show all)
+        // but this block ensures no invalid state
+        if (fromDate && fromDate < sortedDates[0]) {
+          setFromDate('')
+        }
+
+        if (toDate && toDate > sortedDates[sortedDates.length - 1]) {
+          setToDate('')
+        }
+      }
+    }
+
     setLoading(false)
   }
 
@@ -287,10 +338,68 @@ export default function ReportingContainerDetailPage() {
             )}
           </section>
 
+          <section
+            style={{
+              marginTop: 18,
+              border: '1px solid rgba(0,0,0,0.12)',
+              borderRadius: 12,
+              padding: 12,
+            }}
+          >
+            <h2 style={{ marginTop: 0, fontSize: 16 }}>Filters</h2>
+
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>
+              <div style={{ display: 'grid', gap: 6 }}>
+                <label style={{ fontSize: 13, fontWeight: 600 }}>From</label>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  style={{
+                    height: 36,
+                    padding: '0 10px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(0,0,0,0.18)',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gap: 6 }}>
+                <label style={{ fontSize: 13, fontWeight: 600 }}>To</label>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  style={{
+                    height: 36,
+                    padding: '0 10px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(0,0,0,0.18)',
+                  }}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFromDate('')
+                  setToDate('')
+                }}
+                style={{ height: 36, padding: '0 12px' }}
+              >
+                Clear Filters
+              </button>
+
+              <div style={{ fontSize: 12, opacity: 0.75 }}>
+                Showing {filteredEntries.length} of {entries.length} entries
+              </div>
+            </div>
+          </section>
+
           <section style={{ marginTop: 18 }}>
             <h2 style={{ fontSize: 16, marginBottom: 8 }}>Report Table</h2>
 
-            {entries.length === 0 ? (
+            {filteredEntries.length === 0 ? (
               <div style={{ opacity: 0.75 }}>No entries found.</div>
             ) : (
               <div

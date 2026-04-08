@@ -5,11 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 type Theme = 'system' | 'light' | 'dark'
 type CurrentUserRole = 'USER' | 'TESTER' | 'ADMIN' | 'REPORTING'
 
-type Settings = {
-  appTitle: string
-  theme: Theme
-  visibleSidebarTypes: string[]
-}
+
 
 type CurrentUser = {
   id: string
@@ -59,11 +55,6 @@ type DbInspectorTablesResponse = {
   tables: DbTableListItem[]
 }
 
-type ContainerTypesResponse = {
-  ok: true
-  types: string[]
-}
-
 type ContainerAccessUser = {
   id: string
   email: string
@@ -104,17 +95,18 @@ function loadSettings(): Settings {
       return {
         appTitle: 'ThreePanel',
         theme: 'system',
-        visibleSidebarTypes: [],
+        visibleSidebarTypes: ['tracker', 'todo', 'journal'],
       }
     }
 
     const parsed = JSON.parse(raw) as Partial<Settings>
 
     const visibleSidebarTypes = Array.isArray(parsed.visibleSidebarTypes)
-      ? parsed.visibleSidebarTypes
-          .map((value) => String(value).trim().toLowerCase())
-          .filter(Boolean)
-      : []
+      ? parsed.visibleSidebarTypes.filter(
+          (value): value is SidebarContainerType =>
+            value === 'tracker' || value === 'todo' || value === 'journal'
+        )
+      : ['tracker', 'todo', 'journal']
 
     return {
       appTitle: typeof parsed.appTitle === 'string' ? parsed.appTitle : 'ThreePanel',
@@ -122,13 +114,16 @@ function loadSettings(): Settings {
         parsed.theme === 'light' || parsed.theme === 'dark' || parsed.theme === 'system'
           ? parsed.theme
           : 'system',
-      visibleSidebarTypes,
+      visibleSidebarTypes:
+        visibleSidebarTypes.length > 0
+          ? visibleSidebarTypes
+          : ['tracker', 'todo', 'journal'],
     }
   } catch {
     return {
       appTitle: 'ThreePanel',
       theme: 'system',
-      visibleSidebarTypes: [],
+      visibleSidebarTypes: ['tracker', 'todo', 'journal'],
     }
   }
 }
@@ -216,31 +211,6 @@ async function loadAdminUsers(): Promise<AdminUserListItem[]> {
   }
 }
 
-async function loadContainerTypes(): Promise<string[]> {
-  try {
-    const res = await fetch('/api/container-types', {
-      credentials: 'include',
-      cache: 'no-store',
-    })
-
-    if (!res.ok) {
-      return []
-    }
-
-    const data = (await res.json().catch(() => null)) as ContainerTypesResponse | null
-
-    if (!data?.ok || !Array.isArray(data.types)) {
-      return []
-    }
-
-    return data.types
-      .map((value) => String(value).trim().toLowerCase())
-      .filter(Boolean)
-  } catch {
-    return []
-  }
-}
-
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
@@ -268,8 +238,6 @@ export default function SettingsPage() {
   const [dbRows, setDbRows] = useState<Array<Record<string, unknown>>>([])
   const [dbRowCount, setDbRowCount] = useState<number | null>(null)
 
-  const [availableSidebarTypes, setAvailableSidebarTypes] = useState<string[]>([])
-
   const [accessUsers, setAccessUsers] = useState<ContainerAccessUser[]>([])
   const [accessContainers, setAccessContainers] = useState<ContainerAccessContainer[]>([])
   const [accessGrants, setAccessGrants] = useState<ContainerAccessGrant[]>([])
@@ -285,9 +253,6 @@ export default function SettingsPage() {
     loadCurrentUser().then((user) => {
       setCurrentUser(user)
     })
-    loadContainerTypes().then((types) => {
-      setAvailableSidebarTypes(types)
-    })    
   }, [])
 
   useEffect(() => {
@@ -347,19 +312,21 @@ export default function SettingsPage() {
     setSavedMsg(null)
   }
 
-  function toggleSidebarType(type: string) {
+  function toggleSidebarType(type: SidebarContainerType) {
     if (!settings) return
 
-    const normalizedType = type.trim().toLowerCase()
-    const exists = settings.visibleSidebarTypes.includes(normalizedType)
+    const exists = settings.visibleSidebarTypes.includes(type)
 
     const nextVisibleSidebarTypes = exists
-      ? settings.visibleSidebarTypes.filter((value) => value !== normalizedType)
-      : [...settings.visibleSidebarTypes, normalizedType]
+      ? settings.visibleSidebarTypes.filter((value) => value !== type)
+      : [...settings.visibleSidebarTypes, type]
 
     setSettings({
       ...settings,
-      visibleSidebarTypes: nextVisibleSidebarTypes,
+      visibleSidebarTypes:
+        nextVisibleSidebarTypes.length > 0
+          ? nextVisibleSidebarTypes
+          : settings.visibleSidebarTypes,
     })
 
     setSavedMsg(null)
@@ -801,34 +768,28 @@ export default function SettingsPage() {
                   Sidebar Container Types
                 </div>
 
-                {availableSidebarTypes.length === 0 ? (
-                  <div style={{ fontSize: 12, opacity: 0.7 }}>
-                    No container types found yet.
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {availableSidebarTypes.map((type) => {
-                      const selected = settings.visibleSidebarTypes.includes(type)
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {(['tracker', 'todo', 'journal'] as SidebarContainerType[]).map((type) => {
+                    const selected = settings.visibleSidebarTypes.includes(type)
 
-                      return (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => toggleSidebarType(type)}
-                          style={{
-                            padding: '8px 12px',
-                            borderRadius: 8,
-                            border: '1px solid rgba(0,0,0,0.12)',
-                            background: selected ? 'rgba(0,0,0,0.08)' : 'transparent',
-                            fontWeight: selected ? 700 : 400,
-                          }}
-                        >
-                          {type}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => toggleSidebarType(type)}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: 8,
+                          border: '1px solid rgba(0,0,0,0.12)',
+                          background: selected ? 'rgba(0,0,0,0.08)' : 'transparent',
+                          fontWeight: selected ? 700 : 400,
+                        }}
+                      >
+                        {type}
+                      </button>
+                    )
+                  })}
+                </div>
 
                 <p style={{ fontSize: 12, opacity: 0.7, marginTop: 8 }}>
                   Controls which built-in container type links appear in the left sidebar.

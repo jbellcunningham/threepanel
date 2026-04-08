@@ -720,7 +720,7 @@ async function loadStats() {
 
   return (
     <main style={{ maxWidth: 900 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <Link href="/app/containers" style={{ textDecoration: 'none' }}>
             ← Back to Containers
@@ -745,6 +745,27 @@ async function loadStats() {
             </>
           )}
         </div>
+
+        {containerId ? (
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <Link
+              href={`/app/reporting/${containerId}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: 36,
+                padding: '0 12px',
+                borderRadius: 8,
+                border: '1px solid rgba(0,0,0,0.12)',
+                textDecoration: 'none',
+                color: 'inherit',
+              }}
+            >
+              Reporting
+            </Link>
+          </div>
+        ) : null}
       </div>
 
       {error && (

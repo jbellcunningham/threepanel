@@ -153,12 +153,20 @@ export default function AppLayout({
   ]
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+      }}
+    >
       <aside
         style={{
-          width: 240,
-          borderRight: '1px solid rgba(0,0,0,0.12)',
+          width: '100%',
+          borderRight: 'none',
+          borderBottom: '1px solid rgba(0,0,0,0.12)',
           padding: 16,
+          boxSizing: 'border-box',
         }}
       >
         <div style={{ marginBottom: 16 }}>
@@ -194,7 +202,13 @@ export default function AppLayout({
           </div>
         </div>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <nav
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 8,
+          }}
+        >
           {panels.map((p) => (
             <Link
               key={p.href}
@@ -204,6 +218,8 @@ export default function AppLayout({
                 borderRadius: 8,
                 textDecoration: 'none',
                 border: '1px solid rgba(0,0,0,0.10)',
+                display: 'inline-flex',
+                alignItems: 'center',
               }}
             >
               {p.title}
@@ -214,14 +230,21 @@ export default function AppLayout({
         <div style={{ marginTop: 16 }}>
           <button
             onClick={logout}
-            style={{ width: '100%', height: 36 }}
+            style={{ width: '100%', maxWidth: 220, height: 36 }}
           >
             Logout
           </button>
         </div>
       </aside>
 
-      <main style={{ flex: 1, padding: 20 }}>
+      <main
+        style={{
+          flex: 1,
+          padding: 16,
+          boxSizing: 'border-box',
+          width: '100%',
+        }}
+      >
         {children}
       </main>
     </div>

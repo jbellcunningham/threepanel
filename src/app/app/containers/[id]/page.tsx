@@ -836,24 +836,6 @@ async function loadStats() {
             alignItems: 'center',
           }}
         >
-          {containerId ? (
-            <Link
-              href={`/app/reporting/${containerId}`}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: 36,
-                padding: '0 12px',
-                borderRadius: 8,
-                border: '1px solid rgba(0,0,0,0.12)',
-                textDecoration: 'none',
-                color: 'inherit',
-              }}
-            >
-              Reporting
-            </Link>
-          ) : null}
 
           <button
             type="button"
@@ -939,7 +921,7 @@ async function loadStats() {
                 type="button"
                 onClick={() => {
                   setShowMenu(false)
-                  router.push('/app/reporting')
+                  router.push(`/app/reporting/${containerId}`)
                 }}
                 style={{
                   textAlign: 'left',

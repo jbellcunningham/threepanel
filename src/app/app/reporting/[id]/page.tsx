@@ -49,6 +49,10 @@ type ContainerTypesResponse = {
   types: string[]
 }
 
+type CurrentUser = {
+  id: string
+}
+
 type ReportingEntry = {
   id: string
   createdAt: string
@@ -127,6 +131,7 @@ export default function ReportingContainerDetailPage() {
   const [toDate, setToDate] = useState('')
   const [showMenu, setShowMenu] = useState(false)
   const [availableContainerTypes, setAvailableContainerTypes] = useState<string[]>([])
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
 
   const filteredEntries = useMemo(() => {
     return entries.filter((entry) => {
@@ -197,6 +202,31 @@ export default function ReportingContainerDetailPage() {
   /* =========================================================
      5) Data loader
      ========================================================= */
+
+  async function loadCurrentUser() {
+    try {
+      const res = await fetch('/api/me', {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      if (!res.ok) {
+        setCurrentUser(null)
+        return
+      }
+
+      const data = await res.json().catch(() => null)
+
+      if (!data?.user) {
+        setCurrentUser(null)
+        return
+      }
+
+      setCurrentUser(data.user)
+    } catch {
+      setCurrentUser(null)
+    }
+  }
 
   async function loadContainerTypes() {
     try {
@@ -291,6 +321,7 @@ export default function ReportingContainerDetailPage() {
   useEffect(() => {
     load()
     loadContainerTypes()
+    loadCurrentUser()
   }, [containerId])
 
   useEffect(() => {
@@ -328,8 +359,15 @@ export default function ReportingContainerDetailPage() {
   return (
     <main style={{ maxWidth: 900 }}>
       <div>
-        <Link href={`/app/containers/${containerId}`} style={{ textDecoration: 'none' }}>
-          ← Back to Container
+        <Link
+          href={
+            currentUser && item && currentUser.id === item.userId
+              ? `/app/containers/${containerId}`
+              : '/app/reporting'
+          }
+          style={{ textDecoration: 'none' }}
+        >
+          ← Back
         </Link>
 
         <div

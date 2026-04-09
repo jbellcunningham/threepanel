@@ -64,15 +64,6 @@ export default function AppLayout({
         flexDirection: 'column',
       }}
     >
-      <header
-        style={{
-          borderBottom: '1px solid rgba(0,0,0,0.12)',
-          padding: 16,
-          boxSizing: 'border-box',
-        }}
-      >
-        <div style={{ fontWeight: 700 }}>{title}</div>
-      </header>
 
       <main
         style={{

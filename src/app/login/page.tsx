@@ -30,7 +30,7 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/app/todos')
+    router.push('/app/containers')
   }
 
   return (

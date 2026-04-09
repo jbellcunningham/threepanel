@@ -17,8 +17,9 @@
    ========================================================= */
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
+import { getContainerTypeDisplay } from '@/lib/containerTypeDisplay'
 import { buildReportingTable } from '@/lib/reportingTable'
 
 /* =========================================================
@@ -41,6 +42,11 @@ type ReportingContainerItem = {
     }>
   } | null
   userId: string
+}
+
+type ContainerTypesResponse = {
+  ok: true
+  types: string[]
 }
 
 type ReportingEntry = {
@@ -87,6 +93,7 @@ function escapeCsvValue(value: string) {
   return value
 }
 
+
 function buildCsvContent(
   columns: Array<{ key: string; label: string }>,
   rows: Array<Record<string, string>>
@@ -108,6 +115,7 @@ function buildCsvContent(
 
 export default function ReportingContainerDetailPage() {
   const pathname = usePathname()
+  const router = useRouter()
   const containerId = useMemo(() => getContainerIdFromPathname(pathname), [pathname])
 
   const [item, setItem] = useState<ReportingContainerItem | null>(null)
@@ -117,6 +125,8 @@ export default function ReportingContainerDetailPage() {
 
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+  const [showMenu, setShowMenu] = useState(false)
+  const [availableContainerTypes, setAvailableContainerTypes] = useState<string[]>([])
 
   const filteredEntries = useMemo(() => {
     return entries.filter((entry) => {
@@ -137,6 +147,26 @@ export default function ReportingContainerDetailPage() {
   const reportingTable = useMemo(() => {
     return buildReportingTable(item?.schema, filteredEntries)
   }, [item, filteredEntries])
+
+  async function logout() {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    })
+
+    router.push('/login')
+  }
+
+  function applyTypeFilter(nextType: string) {
+    setShowMenu(false)
+
+    if (!nextType) {
+      router.push('/app/containers')
+      return
+    }
+
+    router.push(`/app/containers?type=${encodeURIComponent(nextType)}`)
+  }
 
   function exportCsv() {
     if (!item) {
@@ -167,6 +197,35 @@ export default function ReportingContainerDetailPage() {
   /* =========================================================
      5) Data loader
      ========================================================= */
+
+  async function loadContainerTypes() {
+    try {
+      const res = await fetch('/api/container-types', {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      if (!res.ok) {
+        setAvailableContainerTypes([])
+        return
+      }
+
+      const data = (await res.json().catch(() => null)) as ContainerTypesResponse | null
+
+      if (!data?.ok || !Array.isArray(data.types)) {
+        setAvailableContainerTypes([])
+        return
+      }
+
+      setAvailableContainerTypes(
+        data.types
+          .map((value) => String(value).trim().toLowerCase())
+          .filter(Boolean)
+      )
+    } catch {
+      setAvailableContainerTypes([])
+    }
+  }
 
   async function load() {
     if (!containerId) {
@@ -231,7 +290,24 @@ export default function ReportingContainerDetailPage() {
 
   useEffect(() => {
     load()
+    loadContainerTypes()
   }, [containerId])
+
+  useEffect(() => {
+    function handleDocumentClick() {
+      setShowMenu(false)
+    }
+
+    if (!showMenu) {
+      return
+    }
+
+    document.addEventListener('click', handleDocumentClick)
+
+    return () => {
+      document.removeEventListener('click', handleDocumentClick)
+    }
+  }, [showMenu])
 
   /* =========================================================
      7) Render
@@ -264,20 +340,159 @@ export default function ReportingContainerDetailPage() {
             alignItems: 'flex-start',
             gap: 12,
             flexWrap: 'wrap',
+            position: 'relative',
           }}
         >
           <h1 style={{ marginTop: 0, marginBottom: 6 }}>
             {item ? item.title : 'Reporting Container'}
           </h1>
 
-          <button
-            type="button"
-            onClick={exportCsv}
-            disabled={!item || reportingTable.rows.length === 0}
-            style={{ height: 36, padding: '0 12px' }}
-          >
-            Export CSV
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', position: 'relative' }}>
+            <button
+              type="button"
+              onClick={exportCsv}
+              disabled={!item || reportingTable.rows.length === 0}
+              style={{ height: 36, padding: '0 12px' }}
+            >
+              Export CSV
+            </button>
+
+            <button
+              type="button"
+              title={showMenu ? 'Hide menu' : 'Show menu'}
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowMenu((prev) => !prev)
+              }}
+              style={{
+                height: 36,
+                width: 36,
+                borderRadius: 8,
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: 'transparent',
+                cursor: 'pointer',
+                fontSize: 18,
+                lineHeight: '18px',
+              }}
+            >
+              ☰
+            </button>
+
+            {showMenu && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  position: 'absolute',
+                  top: 44,
+                  right: 0,
+                  minWidth: 220,
+                  background: 'white',
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  borderRadius: 12,
+                  padding: 8,
+                  display: 'grid',
+                  gap: 4,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+                  zIndex: 20,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => applyTypeFilter('')}
+                  style={{
+                    textAlign: 'left',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(0,0,0,0.08)',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                  }}
+                >
+                  All
+                </button>
+
+                {availableContainerTypes.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => applyTypeFilter(type)}
+                    style={{
+                      textAlign: 'left',
+                      padding: '10px 12px',
+                      borderRadius: 8,
+                      border: '1px solid rgba(0,0,0,0.08)',
+                      background: item?.type === type ? 'rgba(0,0,0,0.08)' : 'transparent',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {getContainerTypeDisplay(type).label}
+                  </button>
+                ))}
+
+                <div
+                  style={{
+                    height: 1,
+                    background: 'rgba(0,0,0,0.08)',
+                    margin: '4px 0',
+                  }}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMenu(false)
+                    router.push(`/app/reporting/${containerId}`)
+                  }}
+                  style={{
+                    textAlign: 'left',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(0,0,0,0.08)',
+                    background: 'rgba(0,0,0,0.08)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Reporting
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMenu(false)
+                    router.push('/app/settings')
+                  }}
+                  style={{
+                    textAlign: 'left',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(0,0,0,0.08)',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Settings
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMenu(false)
+                    logout()
+                  }}
+                  style={{
+                    textAlign: 'left',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(0,0,0,0.08)',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {item && (

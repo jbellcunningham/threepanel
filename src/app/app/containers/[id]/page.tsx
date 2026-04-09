@@ -1001,31 +1001,37 @@ async function loadStats() {
               <button
                 type="button"
                 onClick={() => setShowEntries((prev) => !prev)}
+                title={showEntries ? 'Hide previous entries' : 'Show previous entries'}
                 style={{
-                  height: 36,
-                  padding: '0 14px',
-                  borderRadius: 8,
+                  height: 32,
+                  padding: '0 12px',
+                  borderRadius: 999,
                   border: '1px solid rgba(0,0,0,0.12)',
-                  background: 'transparent',
+                  background: showEntries ? 'rgba(0,0,0,0.06)' : 'transparent',
                   cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: 600,
                 }}
               >
-                {showEntries ? 'Hide Previous Entries' : 'Show Previous Entries'}
+                {showEntries ? '▾ Entries' : '▸ Entries'}
               </button>
 
               <button
                 type="button"
                 onClick={() => setShowStats((prev) => !prev)}
+                title={showStats ? 'Hide statistics' : 'Show statistics'}
                 style={{
-                  height: 36,
-                  padding: '0 14px',
-                  borderRadius: 8,
+                  height: 32,
+                  padding: '0 12px',
+                  borderRadius: 999,
                   border: '1px solid rgba(0,0,0,0.12)',
-                  background: 'transparent',
+                  background: showStats ? 'rgba(0,0,0,0.06)' : 'transparent',
                   cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: 600,
                 }}
               >
-                {showStats ? 'Hide Statistics' : 'Show Statistics'}
+                {showStats ? '▾ Stats' : '▸ Stats'}
               </button>
             </div>
 
@@ -1034,12 +1040,13 @@ async function loadStats() {
               title="Container settings"
               onClick={() => router.push(`/app/containers/${containerId}/settings`)}
               style={{
-                height: 36,
-                width: 36,
-                borderRadius: 8,
+                height: 32,
+                width: 32,
+                borderRadius: 999,
                 border: '1px solid rgba(0,0,0,0.12)',
                 background: 'transparent',
                 cursor: 'pointer',
+                fontSize: 14,
               }}
             >
               ⚙️
@@ -1564,7 +1571,7 @@ async function loadStats() {
             )}
               </>
             ) : (
-              <div style={{ opacity: 0.75 }}>Previous entries are hidden.</div>
+              <div style={{ opacity: 0.75, fontSize: 13 }}>Entries hidden.</div>
             )}
           </section>
         </>

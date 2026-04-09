@@ -9,7 +9,6 @@ type Settings = {
   appTitle: string
   theme: Theme
   hiddenSidebarTypes: string[]
-  visibleSidebarTypes?: string[]
 }
 
 type CurrentUser = {
@@ -65,6 +64,15 @@ type ContainerTypesResponse = {
   types: string[]
 }
 
+type UserSettingsApiResponse = {
+  ok: true
+  settings: {
+    appTitle: string
+    theme: Theme
+    hiddenSidebarTypes: string[]
+  }
+}
+
 type ContainerAccessUser = {
   id: string
   email: string
@@ -95,8 +103,6 @@ type ContainerAccessResponse = {
   access: ContainerAccessGrant[]
 }
 
-const STORAGE_KEY = 'threepanel_settings_v1'
-
 function formatContainerTypeLabel(value: string) {
   if (value === 'tracker') return 'Tracker'
   if (value === 'todo') return 'To-Do'
@@ -109,11 +115,14 @@ function formatContainerTypeLabel(value: string) {
     .join(' ')
 }
 
-function loadSettings(): Settings {
+async function loadSettings(): Promise<Settings> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const res = await fetch('/api/user-settings', {
+      credentials: 'include',
+      cache: 'no-store',
+    })
 
-    if (!raw) {
+    if (!res.ok) {
       return {
         appTitle: 'ThreePanel',
         theme: 'system',
@@ -121,28 +130,32 @@ function loadSettings(): Settings {
       }
     }
 
-    const parsed = JSON.parse(raw) as Partial<Settings>
+    const data = (await res.json().catch(() => null)) as UserSettingsApiResponse | null
 
-    const hiddenSidebarTypes = Array.isArray(parsed.hiddenSidebarTypes)
-      ? parsed.hiddenSidebarTypes
-          .map((value) => String(value).trim().toLowerCase())
-          .filter(Boolean)
-      : []
-
-    const visibleSidebarTypes = Array.isArray(parsed.visibleSidebarTypes)
-      ? parsed.visibleSidebarTypes
-          .map((value) => String(value).trim().toLowerCase())
-          .filter(Boolean)
-      : []
+    if (!data?.ok || !data.settings) {
+      return {
+        appTitle: 'ThreePanel',
+        theme: 'system',
+        hiddenSidebarTypes: [],
+      }
+    }
 
     return {
-      appTitle: typeof parsed.appTitle === 'string' ? parsed.appTitle : 'ThreePanel',
+      appTitle:
+        typeof data.settings.appTitle === 'string' && data.settings.appTitle.trim()
+          ? data.settings.appTitle
+          : 'ThreePanel',
       theme:
-        parsed.theme === 'light' || parsed.theme === 'dark' || parsed.theme === 'system'
-          ? parsed.theme
+        data.settings.theme === 'light' ||
+        data.settings.theme === 'dark' ||
+        data.settings.theme === 'system'
+          ? data.settings.theme
           : 'system',
-      hiddenSidebarTypes,
-      visibleSidebarTypes,
+      hiddenSidebarTypes: Array.isArray(data.settings.hiddenSidebarTypes)
+        ? data.settings.hiddenSidebarTypes
+            .map((value) => String(value).trim().toLowerCase())
+            .filter(Boolean)
+        : [],
     }
   } catch {
     return {
@@ -153,8 +166,19 @@ function loadSettings(): Settings {
   }
 }
 
-function saveSettings(s: Settings) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
+async function saveSettings(s: Settings): Promise<boolean> {
+  try {
+    const res = await fetch('/api/user-settings', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(s),
+    })
+
+    return res.ok
+  } catch {
+    return false
+  }
 }
 
 function applyTheme(theme: Theme) {
@@ -298,45 +322,18 @@ export default function SettingsPage() {
   const [selectedAccessContainerId, setSelectedAccessContainerId] = useState('')
 
   useEffect(() => {
-    const s = loadSettings()
-    setSettings(s)
-    applyTheme(s.theme)
+    loadSettings().then((s) => {
+      setSettings(s)
+      applyTheme(s.theme)
+    })
 
     loadCurrentUser().then((user) => {
       setCurrentUser(user)
     })
     loadContainerTypes().then((types) => {
       setAvailableSidebarTypes(types)
-    })    
+    })
   }, [])
-
-  useEffect(() => {
-    if (!settings) return
-    if (availableSidebarTypes.length === 0) return
-    if (settings.hiddenSidebarTypes.length > 0) return
-    if (!settings.visibleSidebarTypes || settings.visibleSidebarTypes.length === 0) return
-
-    const normalizedAvailableTypes = availableSidebarTypes.map((value) =>
-      String(value).trim().toLowerCase()
-    )
-
-    const normalizedVisibleTypes = settings.visibleSidebarTypes.map((value) =>
-      String(value).trim().toLowerCase()
-    )
-
-    const migratedHiddenSidebarTypes = normalizedAvailableTypes.filter(
-      (type) => !normalizedVisibleTypes.includes(type)
-    )
-
-    setSettings((prev) =>
-      prev
-        ? {
-            ...prev,
-            hiddenSidebarTypes: migratedHiddenSidebarTypes,
-          }
-        : prev
-    )
-  }, [availableSidebarTypes, settings])
 
   useEffect(() => {
     if (currentUser?.role !== 'ADMIN') {
@@ -636,7 +633,7 @@ function toggleSidebarType(type: string) {
   }
 
 
-function onSave() {
+async function onSave() {
   if (!settings) return
 
   const cleanedAvailableTypes = availableSidebarTypes
@@ -654,7 +651,15 @@ function onSave() {
     hiddenSidebarTypes: cleanedHiddenSidebarTypes,
   }
 
-  saveSettings(cleaned)
+  const ok = await saveSettings(cleaned)
+
+  if (!ok) {
+    setSavedMsg('Save failed.')
+    window.setTimeout(() => setSavedMsg(null), 1600)
+    return
+  }
+
+  setSettings(cleaned)
   window.dispatchEvent(new Event('threepanel-settings-changed'))
   applyTheme(cleaned.theme)
   setSavedMsg('Saved.')

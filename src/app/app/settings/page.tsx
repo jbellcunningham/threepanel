@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 type Theme = 'system' | 'light' | 'dark'
 type CurrentUserRole = 'USER' | 'TESTER' | 'ADMIN' | 'REPORTING'
@@ -286,6 +287,7 @@ async function loadContainerTypes(): Promise<string[]> {
 }
 
 export default function SettingsPage() {
+  const router = useRouter()
   const [settings, setSettings] = useState<Settings | null>(null)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [adminUsers, setAdminUsers] = useState<AdminUserListItem[]>([])
@@ -320,7 +322,8 @@ export default function SettingsPage() {
   const [accessLoading, setAccessLoading] = useState(false)
   const [selectedAccessUserId, setSelectedAccessUserId] = useState('')
   const [selectedAccessContainerId, setSelectedAccessContainerId] = useState('')
-
+  const [showMenu, setShowMenu] = useState(false)
+  
   useEffect(() => {
     loadSettings().then((s) => {
       setSettings(s)
@@ -375,6 +378,22 @@ export default function SettingsPage() {
     loadContainerAccess()
   }, [currentUser, showAdminSection])
 
+  useEffect(() => {
+    function handleDocumentClick() {
+      setShowMenu(false)
+    }
+
+    if (!showMenu) {
+      return
+    }
+
+    document.addEventListener('click', handleDocumentClick)
+
+    return () => {
+      document.removeEventListener('click', handleDocumentClick)
+    }
+  }, [showMenu])
+
   const canSave = useMemo(() => !!settings?.appTitle.trim(), [settings])
 
   const canCreateUser = useMemo(() => {
@@ -420,6 +439,26 @@ function toggleSidebarType(type: string) {
     }))
     setAdminMsg(null)
     setAdminError(null)
+  }
+
+  async function logout() {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    })
+
+    router.push('/login')
+  }
+
+  function applyTypeFilter(nextType: string) {
+    setShowMenu(false)
+
+    if (!nextType) {
+      router.push('/app/containers')
+      return
+    }
+
+    router.push(`/app/containers?type=${encodeURIComponent(nextType)}`)
   }
 
   async function refreshAdminUsers() {
@@ -781,11 +820,161 @@ async function onSave() {
 
   return (
     <main style={{ maxWidth: 720 }}>
-      <h1 style={{ marginTop: 0 }}>Settings</h1>
-      <p style={{ opacity: 0.75, marginTop: 6 }}>
-        This is a starter Settings panel. Right now it saves to your browser only
-        (localStorage). Next we can store this per-user in Postgres.
-      </p>
+      <section
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 12,
+          flexWrap: 'wrap',
+          position: 'relative',
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <h1 style={{ marginTop: 0, marginBottom: 6 }}>Settings</h1>
+          <p style={{ opacity: 0.75, marginTop: 0 }}>
+            Manage your app title, appearance, navigation preferences, and admin tools.
+          </p>
+        </div>
+
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <button
+            type="button"
+            title={showMenu ? 'Hide menu' : 'Show menu'}
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowMenu((prev) => !prev)
+            }}
+            style={{
+              height: 36,
+              width: 36,
+              borderRadius: 8,
+              border: '1px solid rgba(0,0,0,0.12)',
+              background: 'transparent',
+              cursor: 'pointer',
+              fontSize: 18,
+              lineHeight: '18px',
+            }}
+          >
+            ☰
+          </button>
+
+          {showMenu && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'absolute',
+                top: 44,
+                right: 0,
+                minWidth: 220,
+                background: 'white',
+                border: '1px solid rgba(0,0,0,0.12)',
+                borderRadius: 12,
+                padding: 8,
+                display: 'grid',
+                gap: 4,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+                zIndex: 20,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => applyTypeFilter('')}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                All
+              </button>
+
+              {availableSidebarTypes.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => applyTypeFilter(type)}
+                  style={{
+                    textAlign: 'left',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(0,0,0,0.08)',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {formatContainerTypeLabel(type)}
+                </button>
+              ))}
+
+              <div
+                style={{
+                  height: 1,
+                  background: 'rgba(0,0,0,0.08)',
+                  margin: '4px 0',
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
+                  router.push('/app/reporting')
+                }}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                Reporting
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
+                  router.push('/app/settings')
+                }}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'rgba(0,0,0,0.08)',
+                  cursor: 'pointer',
+                }}
+              >
+                Settings
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
+                  logout()
+                }}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
 
       <section
         style={{
@@ -853,7 +1042,7 @@ async function onSave() {
                 style={{ width: '100%', padding: '10px 12px' }}
               />
               <p style={{ fontSize: 12, opacity: 0.7, marginTop: 8 }}>
-                We’ll use this to label the sidebar and the browser title.
+                We’ll use this to label the app header and browser title.
               </p>
               <div style={{ marginTop: 12 }}>
                 <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>
@@ -891,7 +1080,7 @@ async function onSave() {
                 )}
 
                 <p style={{ fontSize: 12, opacity: 0.7, marginTop: 8 }}>
-                  Choose which container types appear in the left sidebar. By default, all existing types are shown. Click a type to hide or show it.
+                  Choose which container types are available in app navigation. By default, all existing types are shown. Click a type to hide or show it.
                 </p>
               </div>              
             </section>

@@ -383,6 +383,7 @@ export default function ContainerDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<TrackerStats | null>(null);
   const [showStats, setShowStats] = useState(false)
+  const [showEntries, setShowEntries] = useState(false)
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [selectedChartFieldId, setSelectedChartFieldId] = useState<string>('')
@@ -996,20 +997,37 @@ async function loadStats() {
               flexWrap: 'wrap',
             }}
           >
-            <button
-              type="button"
-              onClick={() => setShowStats((prev) => !prev)}
-              style={{
-                height: 36,
-                padding: '0 14px',
-                borderRadius: 8,
-                border: '1px solid rgba(0,0,0,0.12)',
-                background: 'transparent',
-                cursor: 'pointer'
-              }}
-            >
-              {showStats ? 'Hide Statistics' : 'Show Statistics'}
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setShowEntries((prev) => !prev)}
+                style={{
+                  height: 36,
+                  padding: '0 14px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                {showEntries ? 'Hide Previous Entries' : 'Show Previous Entries'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowStats((prev) => !prev)}
+                style={{
+                  height: 36,
+                  padding: '0 14px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                {showStats ? 'Hide Statistics' : 'Show Statistics'}
+              </button>
+            </div>
 
             <button
               type="button"
@@ -1021,12 +1039,164 @@ async function loadStats() {
                 borderRadius: 8,
                 border: '1px solid rgba(0,0,0,0.12)',
                 background: 'transparent',
-                cursor: 'pointer'
+                cursor: 'pointer',
               }}
             >
               ⚙️
             </button>
           </div>
+
+
+          {/* Entry Form */}
+          <section
+            style={{
+              marginTop: 18,
+              border: '1px solid rgba(0,0,0,0.12)',
+              borderRadius: 12,
+              padding: 12,
+            }}
+          >
+            <h2 style={{ fontSize: 16, marginTop: 0 }}>
+              {isEditing ? 'Edit entry' : 'New entry'}
+            </h2>
+
+            {!schema?.fields?.length ? (
+              <div style={{ opacity: 0.75 }}>This container has no schema yet.</div>
+            ) : (
+              <div style={{ display: 'grid', gap: 12 }}>
+                {schema.fields.map((field) => {
+                  const value = formData[field.id]
+
+                  return (
+                    <div key={field.id} style={{ display: 'grid', gap: 6 }}>
+                      <label style={{ fontWeight: 600, fontSize: 13 }}>
+                        {field.label}
+                        {field.required ? ' *' : ''}
+                      </label>
+
+                      {field.type === 'boolean' ? (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(value)}
+                            onChange={(e) => setFieldValue(field, e.target.checked)}
+                          />
+                          <span style={{ fontSize: 13 }}>Yes / No</span>
+                        </label>
+                      ) : field.type === 'dropdown' ? (
+                        <>
+                          <input
+                            list={`datalist-${field.id}`}
+                            value={typeof value === 'string' ? value : ''}
+                            onChange={(e) => setFieldValue(field, e.target.value)}
+                            style={{
+                              height: 36,
+                              padding: '0 10px',
+                              borderRadius: 8,
+                              border: '1px solid rgba(0,0,0,0.18)',
+                            }}
+                          />
+                          <datalist id={`datalist-${field.id}`}>
+                            {getGeneratedDropdownOptions(field.id, entries).map((opt) => (
+                              <option key={opt} value={opt} />
+                            ))}
+                          </datalist>
+                        </>
+                      ) : field.type === 'textarea' ? (
+                        <textarea
+                          ref={(el) => {
+                            if (el) {
+                              el.style.height = 'auto'
+                              el.style.height = `${el.scrollHeight}px`
+                            }
+                          }}
+                          value={typeof value === 'string' ? value : ''}
+                          onChange={(e) => {
+                            const el = e.target as HTMLTextAreaElement
+                            setFieldValue(field, el.value)
+
+                            el.style.height = 'auto'
+                            el.style.height = `${el.scrollHeight}px`
+                          }}
+                          rows={1}
+                          style={{
+                            padding: '10px',
+                            borderRadius: 8,
+                            border: '1px solid rgba(0,0,0,0.18)',
+                            resize: 'none',
+                            font: 'inherit',
+                            overflow: 'hidden'
+                          }}
+                        />
+                      ) : (
+                        <input
+                          type={
+                            field.type === 'number'
+                              ? 'number'
+                              : field.type === 'date'
+                              ? 'date'
+                              : 'text'
+                          }
+                          value={
+                            typeof value === 'string' || typeof value === 'number'
+                              ? String(value)
+                              : ''
+                          }
+                          onChange={(e) => setFieldValue(field, e.target.value)}
+                          style={{
+                            height: 36,
+                            padding: '0 10px',
+                            borderRadius: 8,
+                            border: '1px solid rgba(0,0,0,0.18)',
+                          }}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {isEditing ? (
+                    <>
+                      <button
+                        onClick={saveEdit}
+                        disabled={!canSave}
+                        style={{ height: 38, padding: '0 14px' }}
+                      >
+                        {saving ? 'Saving…' : 'Save changes'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        style={{ height: 38, padding: '0 14px' }}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={addEntry}
+                        disabled={!canSave}
+                        style={{ height: 38, padding: '0 14px' }}
+                      >
+                        {saving ? 'Saving…' : 'Add entry'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFormData(buildEmptyFormData(schema))}
+                        style={{ height: 38, padding: '0 14px' }}
+                      >
+                        Clear
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
 
           {showStats && (
           <section
@@ -1298,165 +1468,17 @@ async function loadStats() {
           </section>
           )}
 
-          {/* Entry Form */}
-          <section
-            style={{
-              marginTop: 18,
-              border: '1px solid rgba(0,0,0,0.12)',
-              borderRadius: 12,
-              padding: 12,
-            }}
-          >
-            <h2 style={{ fontSize: 16, marginTop: 0 }}>
-              {isEditing ? 'Edit entry' : 'New entry'}
-            </h2>
-
-            {!schema?.fields?.length ? (
-              <div style={{ opacity: 0.75 }}>This container has no schema yet.</div>
-            ) : (
-              <div style={{ display: 'grid', gap: 12 }}>
-                {schema.fields.map((field) => {
-                  const value = formData[field.id]
-
-                  return (
-                    <div key={field.id} style={{ display: 'grid', gap: 6 }}>
-                      <label style={{ fontWeight: 600, fontSize: 13 }}>
-                        {field.label}
-                        {field.required ? ' *' : ''}
-                      </label>
-
-                      {field.type === 'boolean' ? (
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(value)}
-                            onChange={(e) => setFieldValue(field, e.target.checked)}
-                          />
-                          <span style={{ fontSize: 13 }}>Yes / No</span>
-                        </label>
-                      ) : field.type === 'dropdown' ? (
-                        <>
-                          <input
-                            list={`datalist-${field.id}`}
-                            value={typeof value === 'string' ? value : ''}
-                            onChange={(e) => setFieldValue(field, e.target.value)}
-                            style={{
-                              height: 36,
-                              padding: '0 10px',
-                              borderRadius: 8,
-                              border: '1px solid rgba(0,0,0,0.18)',
-                            }}
-                          />
-                          <datalist id={`datalist-${field.id}`}>
-                            {getGeneratedDropdownOptions(field.id, entries).map((opt) => (
-                              <option key={opt} value={opt} />
-                            ))}
-                          </datalist>
-                        </>
-                      ) : field.type === 'textarea' ? (
-                        <textarea
-                          ref={(el) => {
-                            if (el) {
-                              el.style.height = 'auto'
-                              el.style.height = `${el.scrollHeight}px`
-                            }
-                          }}
-                          value={typeof value === 'string' ? value : ''}
-                          onChange={(e) => {
-                            const el = e.target as HTMLTextAreaElement
-                            setFieldValue(field, el.value)
-
-                            el.style.height = 'auto'
-                            el.style.height = `${el.scrollHeight}px`
-                          }}
-                          rows={1}
-                          style={{
-                            padding: '10px',
-                            borderRadius: 8,
-                            border: '1px solid rgba(0,0,0,0.18)',
-                            resize: 'none',
-                            font: 'inherit',
-                            overflow: 'hidden'
-                          }}
-                        />
-                      ) : (
-                        <input
-                          type={
-                            field.type === 'number'
-                              ? 'number'
-                              : field.type === 'date'
-                              ? 'date'
-                              : 'text'
-                          }
-                          value={
-                            typeof value === 'string' || typeof value === 'number'
-                              ? String(value)
-                              : ''
-                          }
-                          onChange={(e) => setFieldValue(field, e.target.value)}
-                          style={{
-                            height: 36,
-                            padding: '0 10px',
-                            borderRadius: 8,
-                            border: '1px solid rgba(0,0,0,0.18)',
-                          }}
-                        />
-                      )}
-                    </div>
-                  )
-                })}
-
-                <div style={{ display: 'flex', gap: 10 }}>
-                  {isEditing ? (
-                    <>
-                      <button
-                        onClick={saveEdit}
-                        disabled={!canSave}
-                        style={{ height: 38, padding: '0 14px' }}
-                      >
-                        {saving ? 'Saving…' : 'Save changes'}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={cancelEdit}
-                        style={{ height: 38, padding: '0 14px' }}
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={addEntry}
-                        disabled={!canSave}
-                        style={{ height: 38, padding: '0 14px' }}
-                      >
-                        {saving ? 'Saving…' : 'Add entry'}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setFormData(buildEmptyFormData(schema))}
-                        style={{ height: 38, padding: '0 14px' }}
-                      >
-                        Clear
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </section>
 
           {/* Existing Entries */}
           <section style={{ marginTop: 18 }}>
-            <h2 style={{ fontSize: 16, marginBottom: 8 }}>Entries</h2>
+            {showEntries ? (
+              <>
+                <h2 style={{ fontSize: 16, marginBottom: 8 }}>Previous Entries</h2>
 
-            {entries.length === 0 ? (
-              <div style={{ opacity: 0.75 }}>No entries yet.</div>
-            ) : (
-              <div style={{ display: 'grid', gap: 10 }}>
+                {entries.length === 0 ? (
+                  <div style={{ opacity: 0.75 }}>No entries yet.</div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 10 }}>
                 {entries.map((entry) => (
                   <div
                     key={entry.id}
@@ -1539,6 +1561,10 @@ async function loadStats() {
                   </div>
                 ))}
               </div>
+            )}
+              </>
+            ) : (
+              <div style={{ opacity: 0.75 }}>Previous entries are hidden.</div>
             )}
           </section>
         </>

@@ -54,17 +54,6 @@ export default function AppLayout({
       let savedHiddenTypes: string[] = []
       let savedShowAll = false
 
-      const rawSettings = localStorage.getItem(SETTINGS_STORAGE_KEY)
-      const rawShowAll = localStorage.getItem(SHOW_ALL_STORAGE_KEY)
-
-      if (rawShowAll === 'true') {
-        savedShowAll = true
-      }
-
-      let nextTitle = 'ThreePanel'
-      let savedHiddenTypes: string[] = []
-      let savedShowAll = false
-
       const rawShowAll = localStorage.getItem(SHOW_ALL_STORAGE_KEY)
 
       if (rawShowAll === 'true') {

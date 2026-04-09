@@ -124,6 +124,11 @@ type TimeSeriesPoint = {
 
 type TrackerTimeSeries = Record<string, TimeSeriesPoint[]>;
 
+type ContainerTypesResponse = {
+  ok: true
+  types: string[]
+}
+
 /* =========================================================
    3) Helpers
    ========================================================= */
@@ -381,6 +386,8 @@ export default function ContainerDetailPage() {
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [selectedChartFieldId, setSelectedChartFieldId] = useState<string>('')
+  const [showMenu, setShowMenu] = useState(false)
+  const [availableContainerTypes, setAvailableContainerTypes] = useState<string[]>([])
   const hasFieldStats = stats ? Object.keys(stats.fields).length > 0 : false
 
   // Edit mode state
@@ -469,6 +476,35 @@ export default function ContainerDetailPage() {
     setFormData(buildEmptyFormData(data.item?.schema ?? null))
     setEditingEntryId(null)
     setLoading(false)
+  }
+
+  async function loadContainerTypes() {
+    try {
+      const res = await fetch('/api/container-types', {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      if (!res.ok) {
+        setAvailableContainerTypes([])
+        return
+      }
+
+      const data = (await res.json().catch(() => null)) as ContainerTypesResponse | null
+
+      if (!data?.ok || !Array.isArray(data.types)) {
+        setAvailableContainerTypes([])
+        return
+      }
+
+      setAvailableContainerTypes(
+        data.types
+          .map((value) => String(value).trim().toLowerCase())
+          .filter(Boolean)
+      )
+    } catch {
+      setAvailableContainerTypes([])
+    }
   }
 
 async function loadStats() {
@@ -638,6 +674,26 @@ async function loadStats() {
     setSaving(false)
   }
 
+  async function logout() {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    })
+
+    router.push('/login')
+  }
+
+  function applyTypeFilter(nextType: string) {
+    setShowMenu(false)
+
+    if (!nextType) {
+      router.push('/app/containers')
+      return
+    }
+
+    router.push(`/app/containers?type=${encodeURIComponent(nextType)}`)
+  }
+
   /**
    * Deletes one entry after confirmation.
    */
@@ -677,11 +733,12 @@ async function loadStats() {
      ========================================================= */
 
   useEffect(() => {
-    if (!containerId) return;
+    if (!containerId) return
 
-    load();
-    loadStats();
-  }, [containerId]);
+    load()
+    loadStats()
+    loadContainerTypes()
+  }, [containerId])
 
   useEffect(() => {
     if (numericStatFields.length === 0) {
@@ -702,6 +759,22 @@ async function loadStats() {
     }
   }, [numericStatFields, selectedChartFieldId])
 
+  useEffect(() => {
+    function handleDocumentClick() {
+      setShowMenu(false)
+    }
+
+    if (!showMenu) {
+      return
+    }
+
+    document.addEventListener('click', handleDocumentClick)
+
+    return () => {
+      document.removeEventListener('click', handleDocumentClick)
+    }
+  }, [showMenu])
+
   /* =========================================================
      8) Render
      ========================================================= */
@@ -720,8 +793,16 @@ async function loadStats() {
 
   return (
     <main style={{ maxWidth: 900 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-        <div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
           <Link href="/app/containers" style={{ textDecoration: 'none' }}>
             ← Back to Containers
           </Link>
@@ -746,8 +827,16 @@ async function loadStats() {
           )}
         </div>
 
-        {containerId ? (
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            flexShrink: 0,
+            position: 'relative',
+            alignItems: 'center',
+          }}
+        >
+          {containerId ? (
             <Link
               href={`/app/reporting/${containerId}`}
               style={{
@@ -764,10 +853,145 @@ async function loadStats() {
             >
               Reporting
             </Link>
-          </div>
-        ) : null}
-      </div>
+          ) : null}
 
+          <button
+            type="button"
+            title={showMenu ? 'Hide menu' : 'Show menu'}
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowMenu((prev) => !prev)
+            }}
+            style={{
+              height: 36,
+              width: 36,
+              borderRadius: 8,
+              border: '1px solid rgba(0,0,0,0.12)',
+              background: 'transparent',
+              cursor: 'pointer',
+              fontSize: 18,
+              lineHeight: '18px',
+            }}
+          >
+            ☰
+          </button>
+
+          {showMenu && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'absolute',
+                top: 44,
+                right: 0,
+                minWidth: 220,
+                background: 'white',
+                border: '1px solid rgba(0,0,0,0.12)',
+                borderRadius: 12,
+                padding: 8,
+                display: 'grid',
+                gap: 4,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+                zIndex: 20,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => applyTypeFilter('')}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                All
+              </button>
+
+              {availableContainerTypes.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => applyTypeFilter(type)}
+                  style={{
+                    textAlign: 'left',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(0,0,0,0.08)',
+                    background: item?.type === type ? 'rgba(0,0,0,0.08)' : 'transparent',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {getContainerTypeDisplay(type).label}
+                </button>
+              ))}
+
+              <div
+                style={{
+                  height: 1,
+                  background: 'rgba(0,0,0,0.08)',
+                  margin: '4px 0',
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
+                  router.push('/app/reporting')
+                }}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                Reporting
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
+                  router.push('/app/settings')
+                }}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                Settings
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
+                  logout()
+                }}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
       {error && (
         <div style={{ marginTop: 12, color: 'crimson' }}>
           {error}
@@ -786,7 +1010,8 @@ async function loadStats() {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              gap: 10
+              gap: 10,
+              flexWrap: 'wrap',
             }}
           >
             <button

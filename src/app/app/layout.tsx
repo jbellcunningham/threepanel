@@ -4,13 +4,15 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-const SETTINGS_STORAGE_KEY = 'threepanel_settings_v1'
 const SHOW_ALL_STORAGE_KEY = 'threepanel_sidebar_show_all_types_v1'
 
-type StoredSettings = {
-  appTitle?: string
-  visibleSidebarTypes?: string[]
-  hiddenSidebarTypes?: string[]
+type UserSettingsApiResponse = {
+  ok: true
+  settings: {
+    appTitle: string
+    theme: 'system' | 'light' | 'dark'
+    hiddenSidebarTypes: string[]
+  }
 }
 
 function normalizeTypeList(values: unknown): string[] {
@@ -51,7 +53,6 @@ export default function AppLayout({
       let nextTitle = 'ThreePanel'
       let savedHiddenTypes: string[] = []
       let savedShowAll = false
-      let legacyVisibleTypes: string[] = []
 
       const rawSettings = localStorage.getItem(SETTINGS_STORAGE_KEY)
       const rawShowAll = localStorage.getItem(SHOW_ALL_STORAGE_KEY)
@@ -60,22 +61,40 @@ export default function AppLayout({
         savedShowAll = true
       }
 
-      if (rawSettings) {
-        try {
-          const parsed = JSON.parse(rawSettings) as StoredSettings
+      let nextTitle = 'ThreePanel'
+      let savedHiddenTypes: string[] = []
+      let savedShowAll = false
 
-          nextTitle =
-            typeof parsed.appTitle === 'string' && parsed.appTitle.trim()
-              ? parsed.appTitle
-              : 'ThreePanel'
+      const rawShowAll = localStorage.getItem(SHOW_ALL_STORAGE_KEY)
 
-          savedHiddenTypes = normalizeTypeList(parsed.hiddenSidebarTypes)
-          legacyVisibleTypes = normalizeTypeList(parsed.visibleSidebarTypes)
-        } catch {
-          nextTitle = 'ThreePanel'
-          savedHiddenTypes = []
-          legacyVisibleTypes = []
+      if (rawShowAll === 'true') {
+        savedShowAll = true
+      }
+
+      try {
+        const settingsRes = await fetch('/api/user-settings', {
+          credentials: 'include',
+          cache: 'no-store',
+        })
+
+        if (settingsRes.ok) {
+          const settingsData = (await settingsRes.json().catch(() => null)) as
+            | UserSettingsApiResponse
+            | null
+
+          if (settingsData?.ok && settingsData.settings) {
+            nextTitle =
+              typeof settingsData.settings.appTitle === 'string' &&
+              settingsData.settings.appTitle.trim()
+                ? settingsData.settings.appTitle
+                : 'ThreePanel'
+
+            savedHiddenTypes = normalizeTypeList(settingsData.settings.hiddenSidebarTypes)
+          }
         }
+      } catch {
+        nextTitle = 'ThreePanel'
+        savedHiddenTypes = []
       }
 
       setTitle(nextTitle)

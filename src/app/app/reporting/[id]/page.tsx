@@ -328,8 +328,8 @@ export default function ReportingContainerDetailPage() {
   return (
     <main style={{ maxWidth: 900 }}>
       <div>
-        <Link href="/app/reporting" style={{ textDecoration: 'none' }}>
-          ← Back to Reporting
+        <Link href={`/app/containers/${containerId}`} style={{ textDecoration: 'none' }}>
+          ← Back to Container
         </Link>
 
         <div

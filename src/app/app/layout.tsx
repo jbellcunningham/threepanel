@@ -46,6 +46,7 @@ export default function AppLayout({
       }
 
       setTitle(nextTitle)
+      document.title = nextTitle
     }
 
     syncTitle()
@@ -55,6 +56,10 @@ export default function AppLayout({
       window.removeEventListener('threepanel-settings-changed', syncTitle)
     }
   }, [])
+
+  useEffect(() => {
+    document.title = title || 'ThreePanel'
+  }, [title])
 
   return (
     <div

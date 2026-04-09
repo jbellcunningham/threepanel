@@ -5,9 +5,9 @@ export const metadata: Metadata = {
   description: 'Schema-driven container, reporting, and statistics platform.',
   manifest: '/manifest.webmanifest',
   icons: {
-    icon: '/window.svg',
-    shortcut: '/window.svg',
-    apple: '/window.svg',
+    icon: '/icon-192.png',
+    shortcut: '/icon-192.png',
+    apple: '/apple-touch-icon.png',
   },
 }
 

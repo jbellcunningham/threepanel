@@ -215,6 +215,7 @@ export default function ContainersPage() {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
 
   /* -----------------------------
      Derived values
@@ -391,6 +392,15 @@ async function loadContainerTypes() {
     router.push(`/app/containers/${id}/settings`)
   }
 
+  async function logout() {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    })
+
+    router.push('/login')
+  }
+
   async function toggleTodoContainerDone(id: string, nextDone: boolean) {
     setError(null)
 
@@ -449,6 +459,8 @@ async function loadContainerTypes() {
   }
 
   function applyTypeFilter(nextType: string) {
+    setShowMenu(false)
+
     if (!nextType) {
       router.push('/app/containers')
       return
@@ -465,77 +477,226 @@ async function loadContainerTypes() {
     load()
   }, [])
 
+  useEffect(() => {
+    function handleDocumentClick() {
+      setShowMenu(false)
+    }
+
+    if (!showMenu) {
+      return
+    }
+
+    document.addEventListener('click', handleDocumentClick)
+
+    return () => {
+      document.removeEventListener('click', handleDocumentClick)
+    }
+  }, [showMenu])
+
   /* =========================================================
      8) Render
      ========================================================= */
 
   return (
     <main style={{ maxWidth: 900 }}>
-      <h1 style={{ marginTop: 0 }}>{pageTitle}</h1>
-      <p style={{ opacity: 0.75, marginTop: 6 }}>{pageDescription}</p>
 
       <section
         style={{
           marginTop: 16,
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 8,
-          flexWrap: 'wrap'
+          alignItems: 'flex-start',
+          gap: 12,
+          flexWrap: 'wrap',
         }}
       >
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {filterButtons.map((button) => {
-          const isActive = typeFilter === button.type
+        <div style={{ minWidth: 0 }}>
+          <h1 style={{ marginTop: 0, marginBottom: 6 }}>{pageTitle}</h1>
+          <p style={{ opacity: 0.75, marginTop: 0, marginBottom: 0 }}>{pageDescription}</p>
+        </div>
 
-          return (
-            <button
-              key={button.key}
-              type='button'
-              onClick={() => applyTypeFilter(button.type)}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 8,
-                border: '1px solid rgba(0,0,0,0.12)',
-                background: isActive ? 'rgba(0,0,0,0.08)' : 'transparent',
-                cursor: 'pointer'
-              }}
-            >
-              {button.label}
-            </button>
-          )
-        })}
-       </div>
-        <button
-          type="button"
-          title={showCreate ? 'Hide' : 'Create Container'}
-          onClick={() => {
-            setShowCreate((prev) => {
-              const next = !prev
-
-              if (next) {
-                if (typeFilter) {
-                  setCreateMode('template')
-                  setTemplateType(typeFilter)
-                }
-              }
-
-              return next
-            })
-          }}
+        <div
           style={{
-            height: 36,
-            width: 36,
-            borderRadius: 8,
-            border: '1px solid rgba(0,0,0,0.12)',
-            background: 'transparent',
-            cursor: 'pointer',
-            fontSize: 20,
-            lineHeight: '20px'
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            position: 'relative',
+            flexShrink: 0,
           }}
         >
-          {showCreate ? '−' : '+'}
-        </button>        
+          <button
+            type="button"
+            title={showCreate ? 'Hide' : 'Create Container'}
+            onClick={() => {
+              setShowCreate((prev) => {
+                const next = !prev
+
+                if (next) {
+                  if (typeFilter) {
+                    setCreateMode('template')
+                    setTemplateType(typeFilter)
+                  }
+                }
+
+                return next
+              })
+            }}
+            style={{
+              height: 36,
+              width: 36,
+              borderRadius: 8,
+              border: '1px solid rgba(0,0,0,0.12)',
+              background: 'transparent',
+              cursor: 'pointer',
+              fontSize: 20,
+              lineHeight: '20px',
+            }}
+          >
+            {showCreate ? '−' : '+'}
+          </button>
+
+          <button
+            type="button"
+            title={showMenu ? 'Hide menu' : 'Show menu'}
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowMenu((prev) => !prev)
+            }}
+            style={{
+              height: 36,
+              width: 36,
+              borderRadius: 8,
+              border: '1px solid rgba(0,0,0,0.12)',
+              background: 'transparent',
+              cursor: 'pointer',
+              fontSize: 18,
+              lineHeight: '18px',
+            }}
+          >
+            ☰
+          </button>
+
+          {showMenu && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'absolute',
+                top: 44,
+                right: 0,
+                minWidth: 220,
+                background: 'white',
+                border: '1px solid rgba(0,0,0,0.12)',
+                borderRadius: 12,
+                padding: 8,
+                display: 'grid',
+                gap: 4,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+                zIndex: 20,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => applyTypeFilter('')}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: typeFilter === '' ? 'rgba(0,0,0,0.08)' : 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                All
+              </button>
+
+              {filterButtons
+                .filter((button) => button.type)
+                .map((button) => {
+                  const isActive = typeFilter === button.type
+
+                  return (
+                    <button
+                      key={button.key}
+                      type="button"
+                      onClick={() => applyTypeFilter(button.type)}
+                      style={{
+                        textAlign: 'left',
+                        padding: '10px 12px',
+                        borderRadius: 8,
+                        border: '1px solid rgba(0,0,0,0.08)',
+                        background: isActive ? 'rgba(0,0,0,0.08)' : 'transparent',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {button.label}
+                    </button>
+                  )
+                })}
+
+              <div
+                style={{
+                  height: 1,
+                  background: 'rgba(0,0,0,0.08)',
+                  margin: '4px 0',
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
+                  router.push('/app/reporting')
+                }}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                Reporting
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
+                  router.push('/app/settings')
+                }}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                Settings
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
+                  logout()
+                }}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
       </section>
 
       {showCreate && (

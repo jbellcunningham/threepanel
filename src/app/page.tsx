@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 type CurrentUser = {
   id: string
@@ -9,6 +10,7 @@ type CurrentUser = {
 }
 
 export default function HomePage() {
+  const router = useRouter()
   const [showMenu, setShowMenu] = useState(false)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
 
@@ -33,6 +35,7 @@ export default function HomePage() {
         }
 
         setCurrentUser(data.user)
+        router.push('/app/containers')
       } catch {
         setCurrentUser(null)
       }

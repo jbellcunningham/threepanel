@@ -1,0 +1,17 @@
+{
+  "name": "ThreePanel",
+  "short_name": "ThreePanel",
+  "description": "Schema-driven container, reporting, and statistics platform.",
+  "start_url": "/login",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/window.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

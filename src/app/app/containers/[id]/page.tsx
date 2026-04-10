@@ -384,6 +384,7 @@ export default function ContainerDetailPage() {
   const [stats, setStats] = useState<TrackerStats | null>(null);
   const [showStats, setShowStats] = useState(false)
   const [showEntries, setShowEntries] = useState(false)
+  const [showEntryForm, setShowEntryForm] = useState(false)
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [selectedChartFieldId, setSelectedChartFieldId] = useState<string>('')
@@ -400,6 +401,9 @@ export default function ContainerDetailPage() {
 
   const schema = getEffectiveSchema(item)
   const isEditing = editingEntryId !== null
+  const isTodoLikeContainer =
+    item?.type?.toLowerCase?.() === 'todo' ||
+    Boolean(schema?.fields?.some((field) => field.id === 'done'))
 
   const numericStatFields = useMemo(() => {
     if (!stats) return []
@@ -476,6 +480,14 @@ export default function ContainerDetailPage() {
     setEntries(data.entries ?? [])
     setFormData(buildEmptyFormData(data.item?.schema ?? null))
     setEditingEntryId(null)
+
+    if (data.item?.type?.toLowerCase?.() === 'todo') {
+      setShowEntries(true)
+      setShowEntryForm(false)
+    } else {
+      setShowEntryForm(true)
+    }
+
     setLoading(false)
   }
 
@@ -616,25 +628,38 @@ async function loadStats() {
 
     await load()
     await loadStats()
+
+    if (item?.type?.toLowerCase?.() === 'todo') {
+      setShowEntryForm(false)
+      setShowEntries(true)
+    }
+
     setSaving(false)
   }
 
   /**
    * Starts editing an existing entry by loading its data into the form.
    */
+
   function startEdit(entry: TrackerEntry) {
     setError(null)
     setEditingEntryId(entry.id)
     setFormData(buildFormDataFromEntry(schema, entry))
+    setShowEntryForm(true)
   }
 
   /**
    * Cancels edit mode and resets form to a fresh entry state.
    */
+
   function cancelEdit() {
     setEditingEntryId(null)
     setFormData(buildEmptyFormData(schema))
     setError(null)
+
+    if (item?.type?.toLowerCase?.() === 'todo') {
+      setShowEntryForm(false)
+    }
   }
 
   /**
@@ -693,6 +718,45 @@ async function loadStats() {
     }
 
     router.push(`/app/containers?type=${encodeURIComponent(nextType)}`)
+  }
+
+  async function toggleTodoEntryDone(entry: TrackerEntry, nextDone: boolean) {
+    if (!containerId || !isTodoLikeContainer) return
+
+    setError(null)
+
+    const now = new Date().toISOString()
+
+    const res = await fetch(`/api/tracker/${containerId}/entries/${entry.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        data: {
+          ...(entry.data ?? {}),
+          done: nextDone,
+          doneAt: nextDone ? now : null,
+          statusUpdatedAt: now,
+        },
+      }),
+    })
+
+    const raw = await res.text()
+
+    let data: any = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok || !data?.ok) {
+      setError(data?.error || raw || 'Failed to update subtask')
+      return
+    }
+
+    await load()
+    await loadStats()
   }
 
   /**
@@ -1002,6 +1066,30 @@ async function loadStats() {
           >
             <button
               type="button"
+              onClick={() => {
+                setShowEntryForm((prev) => !prev)
+                if (item?.type?.toLowerCase?.() === 'todo') {
+                  setEditingEntryId(null)
+                  setFormData(buildEmptyFormData(schema))
+                }
+              }}
+              title={showEntryForm ? 'Hide new entry form' : 'Show new entry form'}
+              style={{
+                height: 32,
+                padding: '0 12px',
+                borderRadius: 999,
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: showEntryForm ? 'rgba(0,0,0,0.06)' : 'transparent',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              {showEntryForm ? '− Add' : '+ Add'}
+            </button>
+
+            <button
+              type="button"
               onClick={() => setShowEntries((prev) => !prev)}
               title={showEntries ? 'Hide previous entries' : 'Show previous entries'}
               style={{
@@ -1055,22 +1143,23 @@ async function loadStats() {
           </div>
 
           {/* Entry Form */}
-          <section
-            style={{
-              marginTop: 18,
-              border: '1px solid rgba(0,0,0,0.12)',
-              borderRadius: 12,
-              padding: 12,
-            }}
-          >
-            <h2 style={{ fontSize: 16, marginTop: 0 }}>
-              {isEditing ? 'Edit entry' : 'New entry'}
-            </h2>
+          {showEntryForm && (
+            <section
+              style={{
+                marginTop: 18,
+                border: '1px solid rgba(0,0,0,0.12)',
+                borderRadius: 12,
+                padding: 12,
+              }}
+            >
+              <h2 style={{ fontSize: 16, marginTop: 0 }}>
+                {isEditing ? 'Edit entry' : 'New entry'}
+              </h2>
 
-            {!schema?.fields?.length ? (
-              <div style={{ opacity: 0.75 }}>This container has no schema yet.</div>
-            ) : (
-              <div style={{ display: 'grid', gap: 12 }}>
+              {!schema?.fields?.length ? (
+                <div style={{ opacity: 0.75 }}>This container has no schema yet.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: 12 }}>
                 {schema.fields.map((field) => {
                   const value = formData[field.id]
 
@@ -1203,7 +1292,8 @@ async function loadStats() {
                 </div>
               </div>
             )}
-          </section>
+            </section>
+          )}
 
           {showStats && (
           <section
@@ -1486,87 +1576,130 @@ async function loadStats() {
                   <div style={{ opacity: 0.75 }}>No entries yet.</div>
                 ) : (
                   <div style={{ display: 'grid', gap: 10 }}>
-                {entries.map((entry) => (
-                  <div
-                    key={entry.id}
-                    style={{
-                      border: '1px solid rgba(0,0,0,0.12)',
-                      borderRadius: 12,
-                      padding: 12,
-                    }}
-                  >
+                {entries.map((entry) => {
+                  const entryDone = Boolean(entry.data?.done)
+
+                  return (
                     <div
+                      key={entry.id}
                       style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        gap: 12,
+                        border: '1px solid rgba(0,0,0,0.12)',
+                        borderRadius: 12,
+                        padding: 12,
+                        opacity: isTodoLikeContainer && entryDone ? 0.72 : 1,
                       }}
                     >
-
-                      <div style={{ fontWeight: 700 }}>
-                        {formatEntrySummary(schema, entry, 'cards')}
-                      </div>
-
-                      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                        <button
-                          type="button"
-                          title="Edit entry"
-                          onClick={() => startEdit(entry)}
-                          style={{
-                            height: 32,
-                            width: 32,
-                            borderRadius: 8,
-                            border: '1px solid rgba(0,0,0,0.12)',
-                            background: 'transparent',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          ✏️
-                        </button>
-
-                        <button
-                          type="button"
-                          title="Delete entry"
-                          onClick={() => deleteEntry(entry.id)}
-                          style={{
-                            height: 32,
-                            width: 32,
-                            borderRadius: 8,
-                            border: '1px solid rgba(0,0,0,0.12)',
-                            background: 'transparent',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-
-                    {item?.type === 'journal' &&
-                    shouldRenderJournalBody(schema) &&
-                    getJournalEntryText(entry) ? (
                       <div
                         style={{
-                          marginTop: 8,
-                          whiteSpace: 'pre-wrap',
-                          lineHeight: 1.5
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start',
+                          gap: 12,
                         }}
                       >
-                        {getJournalEntryText(entry)}
-                      </div>
-                    ) : null}
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 10,
+                            minWidth: 0,
+                            flex: 1,
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              textDecoration:
+                                isTodoLikeContainer && entryDone ? 'line-through' : 'none',
+                              opacity:
+                                isTodoLikeContainer && entryDone ? 0.75 : 1,
+                              minWidth: 0,
+                            }}
+                          >
+                            {formatEntrySummary(schema, entry, 'cards')}
+                          </div>
+                        </div>
 
-                    <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-                      Created: {formatDate(entry.createdAt)}
-                    </div>
-                    {entry.updatedAt && (
-                      <div style={{ fontSize: 12, opacity: 0.7 }}>
-                        Updated: {formatDate(entry.updatedAt)}
+                        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                          {isTodoLikeContainer && (
+                            <button
+                              type="button"
+                              title={entryDone ? 'Undo' : 'Mark as done'}
+                              onClick={() => toggleTodoEntryDone(entry, !entryDone)}
+                              style={{
+                                height: 32,
+                                width: 32,
+                                borderRadius: 8,
+                                border: '1px solid rgba(0,0,0,0.12)',
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                fontSize: 16,
+                                lineHeight: '16px',
+                              }}
+                            >
+                              {entryDone ? '↩️' : '✔️'}
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            title="Edit entry"
+                            onClick={() => startEdit(entry)}
+                            style={{
+                              height: 32,
+                              width: 32,
+                              borderRadius: 8,
+                              border: '1px solid rgba(0,0,0,0.12)',
+                              background: 'transparent',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ✏️
+                          </button>
+
+                          <button
+                            type="button"
+                            title="Delete entry"
+                            onClick={() => deleteEntry(entry.id)}
+                            style={{
+                              height: 32,
+                              width: 32,
+                              borderRadius: 8,
+                              border: '1px solid rgba(0,0,0,0.12)',
+                              background: 'transparent',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {item?.type === 'journal' &&
+                      shouldRenderJournalBody(schema) &&
+                      getJournalEntryText(entry) ? (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            whiteSpace: 'pre-wrap',
+                            lineHeight: 1.5
+                          }}
+                        >
+                          {getJournalEntryText(entry)}
+                        </div>
+                      ) : null}
+
+                      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+                        Created: {formatDate(entry.createdAt)}
+                      </div>
+                      {entry.updatedAt && (
+                        <div style={{ fontSize: 12, opacity: 0.7 }}>
+                          Updated: {formatDate(entry.updatedAt)}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
               </>

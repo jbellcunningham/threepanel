@@ -737,6 +737,40 @@ async function loadStats() {
     await load()
   }
 
+  async function toggleContainerDone() {
+    if (!containerId || item?.type?.toLowerCase?.() !== 'todo') return
+
+    const nextDone = !Boolean(item?.done)
+    const now = new Date().toISOString()
+
+    const res = await fetch(`/api/tracker/${containerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        done: nextDone,
+        doneAt: nextDone ? now : null,
+        statusUpdatedAt: now
+      })
+    })
+
+    const raw = await res.text()
+
+    let data: any = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok || !data?.ok) {
+      setError(data?.error || raw || 'Failed to update container')
+      return
+    }
+
+    await load()
+  }
+
   async function logout() {
     await fetch('/api/auth/logout', {
       method: 'POST',
@@ -931,6 +965,7 @@ async function loadStats() {
               </button>
             )}
           </div>
+
           {item && (
             <>
               {(() => {

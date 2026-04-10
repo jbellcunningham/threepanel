@@ -44,6 +44,9 @@ type RouteCtx = {
 type UpdateTrackerBody = {
   title?: string
   schema?: TrackerSchema
+  done?: boolean
+  doneAt?: string | null
+  statusUpdatedAt?: string | null
 }
 
 /* =========================================================
@@ -240,28 +243,80 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  // (e) Validate title
-  if (!isNonEmptyString(body.title)) {
-    return NextResponse.json({ ok: false, error: 'Title is required' }, { status: 400 })
+  const updateData: {
+    title?: string
+    schema?: TrackerSchema
+    done?: boolean
+    doneAt?: Date | null
+    statusUpdatedAt?: Date | null
+  } = {}
+
+  // (e) Validate optional title
+  if (body.title !== undefined) {
+    if (!isNonEmptyString(body.title)) {
+      return NextResponse.json({ ok: false, error: 'Title is required' }, { status: 400 })
+    }
+
+    updateData.title = body.title.trim()
   }
 
-  // (f) Validate schema
-  if (!validateSchema(body.schema)) {
-    return NextResponse.json({ ok: false, error: 'Invalid schema' }, { status: 400 })
+  // (f) Validate optional schema
+  if (body.schema !== undefined) {
+    if (!validateSchema(body.schema)) {
+      return NextResponse.json({ ok: false, error: 'Invalid schema' }, { status: 400 })
+    }
+
+    updateData.schema = normalizeSchema(body.schema)
   }
 
-  const normalizedSchema = normalizeSchema(body.schema)
+  // (g) Validate optional done fields
+  if (body.done !== undefined) {
+    if (typeof body.done !== 'boolean') {
+      return NextResponse.json({ ok: false, error: 'Invalid done value' }, { status: 400 })
+    }
 
-  // (g) Update tracker
+    updateData.done = body.done
+  }
+
+  if (body.doneAt !== undefined) {
+    if (body.doneAt !== null && Number.isNaN(Date.parse(body.doneAt))) {
+      return NextResponse.json({ ok: false, error: 'Invalid doneAt value' }, { status: 400 })
+    }
+
+    updateData.doneAt = body.doneAt ? new Date(body.doneAt) : null
+  }
+
+  if (body.statusUpdatedAt !== undefined) {
+    if (
+      body.statusUpdatedAt !== null &&
+      Number.isNaN(Date.parse(body.statusUpdatedAt))
+    ) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid statusUpdatedAt value' },
+        { status: 400 }
+      )
+    }
+
+    updateData.statusUpdatedAt = body.statusUpdatedAt
+      ? new Date(body.statusUpdatedAt)
+      : null
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json({ ok: false, error: 'No valid fields to update' }, { status: 400 })
+  }
+
+  // (h) Update tracker
   const item = await prisma.trackerItem.update({
     where: { id: existing.id },
-    data: {
-      title: body.title.trim(),
-      schema: normalizedSchema,
-    },
+    data: updateData,
     select: {
       id: true,
       title: true,
+      type: true,
+      done: true,
+      doneAt: true,
+      statusUpdatedAt: true,
       createdAt: true,
       updatedAt: true,
       schema: true,

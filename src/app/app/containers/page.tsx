@@ -404,12 +404,16 @@ async function loadContainerTypes() {
   async function toggleTodoContainerDone(id: string, nextDone: boolean) {
     setError(null)
 
-    const res = await fetch(`/api/items/${id}`, {
+    const now = new Date().toISOString()
+
+    const res = await fetch(`/api/tracker/${id}`, {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        done: nextDone
+        done: nextDone,
+        doneAt: nextDone ? now : null,
+        statusUpdatedAt: now
       })
     })
 

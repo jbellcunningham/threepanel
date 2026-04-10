@@ -13,7 +13,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { calculateTrackerStatistics } from '@/lib/trackerStatsCalculator'
+import {
+  calculateGroupedNumericStats,
+  calculateTrackerStatistics
+} from '@/lib/trackerStatsCalculator'
 
 /**
  * Types
@@ -65,6 +68,9 @@ type RouteContext = {
     id: string;
   }>;
 };
+
+type GroupBy = 'day' | 'week' | 'month'
+type Aggregation = 'sum' | 'avg' | 'count'
 
 /**
  * Helpers
@@ -155,6 +161,14 @@ function roundNumber(value: number | null): number | null {
   return Number(value.toFixed(2));
 }
 
+function isValidGroupBy(value: string | null): value is GroupBy {
+  return value === 'day' || value === 'week' || value === 'month'
+}
+
+function isValidAggregation(value: string | null): value is Aggregation {
+  return value === 'sum' || value === 'avg' || value === 'count'
+}
+
 /**
  * GET
  */
@@ -198,12 +212,75 @@ export async function GET(_request: Request, context: RouteContext) {
     // 4) Parse schema
     const schema = parseSchema(tracker.schema);
 
-    // 5) Recalculate statistics from source-of-truth entries
-    const calculated = calculateTrackerStatistics(schema, tracker.entries.map((entry) => ({
+    const url = new URL(_request.url)
+    const fieldId = url.searchParams.get('fieldId')
+    const dateFieldId = url.searchParams.get('dateFieldId')
+    const groupByParam = url.searchParams.get('groupBy')
+    const aggregationParam = url.searchParams.get('aggregation')
+
+    const mappedEntries = tracker.entries.map((entry) => ({
       id: entry.id,
       createdAt: entry.createdAt,
       data: isPlainObject(entry.data) ? entry.data : null,
-    })))
+    }))
+
+    if (fieldId || dateFieldId || groupByParam || aggregationParam) {
+      if (!fieldId || !dateFieldId || !groupByParam || !aggregationParam) {
+        return NextResponse.json(
+          { error: 'fieldId, dateFieldId, groupBy, and aggregation are all required for grouped stats' },
+          { status: 400 }
+        )
+      }
+
+      if (!isValidGroupBy(groupByParam)) {
+        return NextResponse.json(
+          { error: 'Invalid groupBy value' },
+          { status: 400 }
+        )
+      }
+
+      if (!isValidAggregation(aggregationParam)) {
+        return NextResponse.json(
+          { error: 'Invalid aggregation value' },
+          { status: 400 }
+        )
+      }
+
+      const valueField = (schema.fields ?? []).find((field) => field.id === fieldId)
+      if (!valueField || valueField.type !== 'number') {
+        return NextResponse.json(
+          { error: 'fieldId must reference a numeric field' },
+          { status: 400 }
+        )
+      }
+
+      const dateField = (schema.fields ?? []).find((field) => field.id === dateFieldId)
+      if (!dateField || dateField.type !== 'date') {
+        return NextResponse.json(
+          { error: 'dateFieldId must reference a date field' },
+          { status: 400 }
+        )
+      }
+
+      const grouped = calculateGroupedNumericStats(
+        schema,
+        mappedEntries,
+        fieldId,
+        dateFieldId,
+        groupByParam,
+        aggregationParam
+      )
+
+      return NextResponse.json({
+        ok: true,
+        trackerId: tracker.id,
+        trackerTitle: tracker.title,
+        ...grouped
+      })
+    }
+
+    // 5) Recalculate statistics from source-of-truth entries
+    const calculated = calculateTrackerStatistics(schema, mappedEntries)
 
     const stats: StatsResponse = {
       trackerId: tracker.id,

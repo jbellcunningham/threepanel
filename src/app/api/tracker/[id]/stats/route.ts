@@ -176,7 +176,6 @@ export async function GET(_request: Request, context: RouteContext) {
       where: {
         id,
         userId: user.id,
-        type: 'tracker',
       },
       include: {
         entries: {

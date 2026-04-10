@@ -155,6 +155,7 @@ function getTimeSeriesPointDate(
   return toIsoString(entry.createdAt)
 }
 
+
 /* =========================================================
    4) Main Calculation
    ========================================================= */
@@ -296,4 +297,92 @@ export function calculateTrackerStatistics(
   }
 
   return statistics
+}
+
+
+/* =========================================================
+   5) Grouped Numeric Statistics (Phase 1)
+   ========================================================= */
+
+type GroupBy = 'day' | 'week' | 'month'
+type Aggregation = 'sum' | 'avg' | 'count'
+
+function getIsoWeek(date: Date): string {
+  const tmp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const dayNum = tmp.getUTCDay() || 7
+  tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum)
+  const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1))
+  const weekNo = Math.ceil((((tmp.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+  return `${tmp.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`
+}
+
+function getBucket(dateValue: string, groupBy: GroupBy): string {
+  const date = new Date(dateValue)
+
+  if (groupBy === 'day') {
+    return date.toISOString().slice(0, 10)
+  }
+
+  if (groupBy === 'month') {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  }
+
+  return getIsoWeek(date)
+}
+
+export function calculateGroupedNumericStats(
+  schema: TrackerSchema | null | undefined,
+  entries: TrackerEntryForStats[],
+  fieldId: string,
+  dateFieldId: string,
+  groupBy: GroupBy,
+  aggregation: Aggregation
+) {
+  const buckets = new Map<string, number[]>()
+
+  for (const entry of entries) {
+    const value = toNumber(getEntryFieldValue(entry, fieldId))
+    if (value === null) continue
+
+    const rawDate = getEntryFieldValue(entry, dateFieldId)
+    if (!rawDate) continue
+
+    const parsedDate = new Date(String(rawDate))
+    if (Number.isNaN(parsedDate.getTime())) continue
+
+    const bucketKey = getBucket(parsedDate.toISOString(), groupBy)
+
+    if (!buckets.has(bucketKey)) {
+      buckets.set(bucketKey, [])
+    }
+
+    buckets.get(bucketKey)!.push(value)
+  }
+
+  const points = Array.from(buckets.entries())
+    .map(([bucket, values]) => {
+      if (aggregation === 'count') {
+        return { bucket, value: values.length }
+      }
+
+      const sum = values.reduce((a, b) => a + b, 0)
+
+      if (aggregation === 'sum') {
+        return { bucket, value: roundNumber(sum) ?? 0 }
+      }
+
+      return {
+        bucket,
+        value: values.length > 0 ? roundNumber(sum / values.length) ?? 0 : 0
+      }
+    })
+    .sort((a, b) => a.bucket.localeCompare(b.bucket))
+
+  return {
+    fieldId,
+    dateFieldId,
+    groupBy,
+    aggregation,
+    points
+  }
 }

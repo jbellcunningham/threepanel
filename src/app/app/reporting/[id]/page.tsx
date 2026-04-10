@@ -385,7 +385,16 @@ export default function ReportingContainerDetailPage() {
             {item ? item.title : 'Reporting Container'}
           </h1>
 
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', position: 'relative' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                position: 'relative',
+                flexShrink: 0,
+                marginLeft: 'auto',
+              }}
+            >
             <button
               type="button"
               onClick={exportCsv}
@@ -423,7 +432,8 @@ export default function ReportingContainerDetailPage() {
                   position: 'absolute',
                   top: 44,
                   right: 0,
-                  minWidth: 220,
+                  width: 'min(220px, calc(100vw - 32px))',
+                  maxWidth: 'calc(100vw - 32px)',
                   background: 'white',
                   border: '1px solid rgba(0,0,0,0.12)',
                   borderRadius: 12,

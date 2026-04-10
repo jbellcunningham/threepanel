@@ -835,6 +835,7 @@ async function loadStats() {
             flexShrink: 0,
             position: 'relative',
             alignItems: 'center',
+            marginLeft: 'auto',            
           }}
         >
 
@@ -866,7 +867,8 @@ async function loadStats() {
                 position: 'absolute',
                 top: 44,
                 right: 0,
-                minWidth: 220,
+                width: 'min(220px, calc(100vw - 32px))',
+                maxWidth: 'calc(100vw - 32px)',
                 background: 'white',
                 border: '1px solid rgba(0,0,0,0.12)',
                 borderRadius: 12,
@@ -987,53 +989,52 @@ async function loadStats() {
         <>
 
           {/* Container Statistics / Settings Actions */}
+
           <div
             style={{
               marginTop: 18,
               display: 'flex',
-              justifyContent: 'space-between',
+              justifyContent: 'flex-end',
               alignItems: 'center',
-              gap: 10,
+              gap: 8,
               flexWrap: 'wrap',
             }}
           >
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => setShowEntries((prev) => !prev)}
-                title={showEntries ? 'Hide previous entries' : 'Show previous entries'}
-                style={{
-                  height: 32,
-                  padding: '0 12px',
-                  borderRadius: 999,
-                  border: '1px solid rgba(0,0,0,0.12)',
-                  background: showEntries ? 'rgba(0,0,0,0.06)' : 'transparent',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                {showEntries ? '▾ Entries' : '▸ Entries'}
-              </button>
+            <button
+              type="button"
+              onClick={() => setShowEntries((prev) => !prev)}
+              title={showEntries ? 'Hide previous entries' : 'Show previous entries'}
+              style={{
+                height: 32,
+                padding: '0 12px',
+                borderRadius: 999,
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: showEntries ? 'rgba(0,0,0,0.06)' : 'transparent',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              {showEntries ? '▾ Entries' : '▸ Entries'}
+            </button>
 
-              <button
-                type="button"
-                onClick={() => setShowStats((prev) => !prev)}
-                title={showStats ? 'Hide statistics' : 'Show statistics'}
-                style={{
-                  height: 32,
-                  padding: '0 12px',
-                  borderRadius: 999,
-                  border: '1px solid rgba(0,0,0,0.12)',
-                  background: showStats ? 'rgba(0,0,0,0.06)' : 'transparent',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                {showStats ? '▾ Stats' : '▸ Stats'}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowStats((prev) => !prev)}
+              title={showStats ? 'Hide statistics' : 'Show statistics'}
+              style={{
+                height: 32,
+                padding: '0 12px',
+                borderRadius: 999,
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: showStats ? 'rgba(0,0,0,0.06)' : 'transparent',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              {showStats ? '▾ Stats' : '▸ Stats'}
+            </button>
 
             <button
               type="button"
@@ -1052,7 +1053,6 @@ async function loadStats() {
               ⚙️
             </button>
           </div>
-
 
           {/* Entry Form */}
           <section

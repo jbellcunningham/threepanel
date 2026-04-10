@@ -107,7 +107,16 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div style={{ position: 'relative' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            position: 'relative',
+            flexShrink: 0,
+            marginLeft: 'auto',
+          }}
+        >
           <button
             type="button"
             onClick={(e) => {
@@ -134,7 +143,8 @@ export default function LoginPage() {
                 position: 'absolute',
                 top: 48,
                 right: 0,
-                minWidth: 220,
+                width: 'min(220px, calc(100vw - 32px))',
+                maxWidth: 'calc(100vw - 32px)',
                 background: 'white',
                 border: '1px solid rgba(0,0,0,0.12)',
                 borderRadius: 12,

@@ -78,6 +78,7 @@ export async function PATCH(req: Request, ctx: RouteContext) {
     select: {
       id: true,
       type: true,
+      done: true,
     },
   })
 
@@ -94,12 +95,24 @@ export async function PATCH(req: Request, ctx: RouteContext) {
       title: true,
       type: true,
       done: true,
+      doneAt: true,
+      statusUpdatedAt: true,
       createdAt: true,
       updatedAt: true,
     },
     data: {
       ...(title ? { title } : {}),
-      ...(typeof done === 'boolean' ? { done } : {}),
+      ...(typeof done === 'boolean'
+        ? done !== item.done
+          ? {
+              done,
+              doneAt: done ? new Date() : null,
+              statusUpdatedAt: new Date(),
+            }
+          : {
+              done,
+            }
+        : {}),
     },
   })
 
@@ -107,6 +120,10 @@ export async function PATCH(req: Request, ctx: RouteContext) {
     ok: true,
     item: {
       ...updated,
+      doneAt: updated.doneAt ? updated.doneAt.toISOString() : null,
+      statusUpdatedAt: updated.statusUpdatedAt
+        ? updated.statusUpdatedAt.toISOString()
+        : null,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     },

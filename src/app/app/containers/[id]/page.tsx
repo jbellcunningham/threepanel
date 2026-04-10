@@ -65,6 +65,9 @@ type TrackerItem = {
   title: string
   type: string
   createdAt: string
+  done?: boolean
+  doneAt?: string | null
+  statusUpdatedAt?: string | null
   schema?: TrackerSchema | null
 }
 
@@ -700,6 +703,40 @@ async function loadStats() {
     setSaving(false)
   }
 
+  async function toggleContainerDone() {
+    if (!containerId || item?.type?.toLowerCase?.() !== 'todo') return
+
+    const nextDone = !Boolean((item as any)?.done)
+    const now = new Date().toISOString()
+
+    const res = await fetch(`/api/tracker/${containerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        done: nextDone,
+        doneAt: nextDone ? now : null,
+        statusUpdatedAt: now
+      })
+    })
+
+    const raw = await res.text()
+
+    let data: any = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok || !data?.ok) {
+      setError(data?.error || raw || 'Failed to update container')
+      return
+    }
+
+    await load()
+  }
+
   async function logout() {
     await fetch('/api/auth/logout', {
       method: 'POST',
@@ -871,9 +908,29 @@ async function loadStats() {
           <Link href="/app/containers" style={{ textDecoration: 'none' }}>
             ← Back to Containers
           </Link>
-          <h1 style={{ marginTop: 8, marginBottom: 6 }}>
-            {item ? item.title : 'Container'}
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h1 style={{ marginTop: 8, marginBottom: 6 }}>
+              {item ? item.title : 'Container'}
+            </h1>
+
+            {item?.type?.toLowerCase?.() === 'todo' && (
+              <button
+                type="button"
+                title={item.done ? 'Mark container open' : 'Mark container done'}
+                onClick={toggleContainerDone}
+                style={{
+                  height: 32,
+                  width: 32,
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  background: 'transparent',
+                  cursor: 'pointer'
+                }}
+              >
+                {item.done ? '↩️' : '✔️'}
+              </button>
+            )}
+          </div>
           {item && (
             <>
               {(() => {

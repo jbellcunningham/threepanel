@@ -58,7 +58,7 @@ async function requireAdmin() {
     }
   }
 
-  return { user, response: null }
+  return { user, response: undefined }
 }
 
 /* =========================================================
@@ -67,7 +67,7 @@ async function requireAdmin() {
 
 export async function GET() {
   const auth = await requireAdmin()
-  if (!auth.user) return auth.response
+  if (auth.response) return auth.response
 
   const [users, containers, access] = await Promise.all([
     prisma.user.findMany({
@@ -130,7 +130,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const auth = await requireAdmin()
-  if (!auth.user) return auth.response
+  if (auth.response) return auth.response
 
   let body: CreateAccessBody
 
@@ -204,7 +204,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   const auth = await requireAdmin()
-  if (!auth.user) return auth.response
+  if (auth.response) return auth.response
 
   let body: DeleteAccessBody
 

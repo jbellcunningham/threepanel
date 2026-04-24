@@ -31,7 +31,7 @@ function normalizeHiddenSidebarTypes(value: unknown): string[] {
   }
 
   return value
-    .map((item) => String(item).trim().toLowerCase())
+    .map((item: any) => String(item).trim().toLowerCase())
     .filter(Boolean)
 }
 

@@ -86,7 +86,7 @@ export async function GET() {
     }
   })
 
-  const items: UserListItem[] = users.map((user) => ({
+  const items: UserListItem[] = users.map((user: { id: string; email: string; role: string; createdAt: Date; updatedAt: Date }) => ({
     id: user.id,
     email: user.email,
     role: user.role,

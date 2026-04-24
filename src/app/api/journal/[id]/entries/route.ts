@@ -140,7 +140,7 @@ export async function POST(req: Request, context: RouteContext) {
     const body = (await req.json().catch(() => ({}))) as CreateJournalEntryBody
     const entryData = buildEntryDataFromSchema(item.schema, body)
 
-    const hasAnyValue = Object.values(entryData).some((value) => value.trim().length > 0)
+    const hasAnyValue = Object.values(entryData).some((value: any) => value.trim().length > 0)
 
     if (!hasAnyValue) {
       return NextResponse.json(

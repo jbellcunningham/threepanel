@@ -74,7 +74,7 @@ export async function GET() {
 
     const types = sortContainerTypes(
       items
-        .map((item) => item.type.trim().toLowerCase())
+        .map((item: { type: string }) => item.type.trim().toLowerCase())
         .filter(Boolean)
     )
 

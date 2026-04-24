@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         ORDER BY t.tablename ASC
       `
 
-      const items: DbTableListItem[] = tables.map((tableRow) => ({
+      const items: DbTableListItem[] = tables.map((tableRow: { name: string; estimatedRowCount: number | null }) => ({
         name: tableRow.name,
         estimatedRowCount:
           typeof tableRow.estimatedRowCount === 'number' ? tableRow.estimatedRowCount : null,
@@ -93,14 +93,14 @@ export async function GET(request: NextRequest) {
       ORDER BY ordinal_position ASC
     `
 
-    const normalizedColumns: DbColumn[] = columns.map((column) => ({
+    const normalizedColumns: DbColumn[] = columns.map((column: { name: string; dataType: string; isNullable: 'YES' | 'NO' | string; columnDefault: string | null }) => ({
       name: column.name,
       dataType: column.dataType,
       isNullable: column.isNullable === 'YES',
     }))
 
-    const hasCreatedAt = normalizedColumns.some((column) => column.name === 'createdAt')
-    const hasId = normalizedColumns.some((column) => column.name === 'id')
+    const hasCreatedAt = normalizedColumns.some((column: any) => column.name === 'createdAt')
+    const hasId = normalizedColumns.some((column: any) => column.name === 'id')
 
     const orderByClause = hasCreatedAt
       ? ` ORDER BY ${quoteIdentifier('createdAt')} DESC`

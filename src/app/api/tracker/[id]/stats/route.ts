@@ -218,7 +218,7 @@ export async function GET(_request: Request, context: RouteContext) {
     const groupByParam = url.searchParams.get('groupBy')
     const aggregationParam = url.searchParams.get('aggregation')
 
-    const mappedEntries = tracker.entries.map((entry) => ({
+    const mappedEntries = tracker.entries.map((entry: any) => ({
       id: entry.id,
       createdAt: entry.createdAt,
       data: isPlainObject(entry.data) ? entry.data : null,
@@ -263,7 +263,7 @@ export async function GET(_request: Request, context: RouteContext) {
       }
 
       const grouped = calculateGroupedNumericStats(
-        schema,
+        { ...schema, fields: schema.fields ?? [] },
         mappedEntries,
         fieldId,
         dateFieldId,
@@ -280,7 +280,7 @@ export async function GET(_request: Request, context: RouteContext) {
     }
 
     // 5) Recalculate statistics from source-of-truth entries
-    const calculated = calculateTrackerStatistics(schema, mappedEntries)
+    const calculated = calculateTrackerStatistics({ ...schema, fields: schema.fields ?? [] }, mappedEntries)
 
     const stats: StatsResponse = {
       trackerId: tracker.id,

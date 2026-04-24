@@ -59,7 +59,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
       createdAt: item.createdAt.toISOString(),
       schema: item.schema ?? null,
     },
-    entries: entries.map((entry) => ({
+    entries: entries.map((entry: { id: string; trackerId: string; data: unknown; createdAt: Date; updatedAt: Date }) => ({
       ...entry,
       createdAt: entry.createdAt.toISOString(),
       updatedAt: entry.updatedAt.toISOString(),

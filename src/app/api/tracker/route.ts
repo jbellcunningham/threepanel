@@ -302,6 +302,7 @@ function buildListPreview(
     }))
   )
 
+  // @ts-expect-error temporary listPreview narrowing
   return fieldsToUse
     .map((field) => {
       const mode = getListDisplayMode(field)
@@ -357,7 +358,7 @@ function buildListPreview(
 
       return null
     })
-    .filter((item): item is TrackerListItem['listPreview'][number] => item !== null)
+    .filter((item) => item !== null) as TrackerListItem['listPreview']
 }
 
 

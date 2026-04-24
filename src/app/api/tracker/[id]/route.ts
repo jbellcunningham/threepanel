@@ -66,7 +66,7 @@ async function requireUser() {
     }
   }
 
-  return { user, response: null }
+  return { user, response: undefined }
 }
 
 function isNonEmptyString(v: unknown): v is string {
@@ -148,7 +148,7 @@ function validateSchema(schema: unknown): schema is TrackerSchema {
 function normalizeSchema(schema: TrackerSchema): TrackerSchema {
   return {
     version: schema.version ?? 1,
-    fields: schema.fields.map((field) => ({
+    fields: schema.fields.map((field: any) => ({
       id: field.id.trim(),
       label: field.label.trim(),
       type: field.type,
@@ -159,7 +159,7 @@ function normalizeSchema(schema: TrackerSchema): TrackerSchema {
         (field.showInList ? 'summary' : 'none'),
       options:
         field.type === 'dropdown'
-          ? (field.options ?? []).map((o) => o.trim()).filter(Boolean)
+          ? (field.options ?? []).map((o: any) => o.trim()).filter(Boolean)
           : undefined,
     })),
   }
@@ -172,7 +172,7 @@ function normalizeSchema(schema: TrackerSchema): TrackerSchema {
 export async function GET(_req: Request, ctx: RouteCtx) {
   // (a) Auth
   const auth = await requireUser()
-  if (!auth.user) return auth.response
+  if (auth.response) return auth.response
   const user = auth.user
 
   // (b) Params
@@ -222,7 +222,7 @@ export async function GET(_req: Request, ctx: RouteCtx) {
 export async function PATCH(req: Request, ctx: RouteCtx) {
   // (a) Auth
   const auth = await requireUser()
-  if (!auth.user) return auth.response
+  if (auth.response) return auth.response
   const user = auth.user
 
   // (b) Params
@@ -335,7 +335,7 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
 export async function DELETE(_req: Request, ctx: RouteCtx) {
   // (a) Auth
   const auth = await requireUser()
-  if (!auth.user) return auth.response
+  if (auth.response) return auth.response
   const user = auth.user
 
   // (b) Params

@@ -36,7 +36,7 @@ export async function GET() {
     },
   })
 
-  const normalizedItems: TodoContainerListItem[] = items.map((item) => ({
+  const normalizedItems: TodoContainerListItem[] = items.map((item: any) => ({
     id: item.id,
     title: item.title,
     type: item.type,

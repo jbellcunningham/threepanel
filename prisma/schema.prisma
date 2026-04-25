@@ -13,6 +13,21 @@ enum UserRole {
   REPORTING
 }
 
+enum FeedbackStatus {
+  NEW
+  TRIAGED
+  IN_PROGRESS
+  DONE
+  WONT_FIX
+}
+
+enum FeedbackType {
+  BUG
+  IMPROVEMENT
+  QUESTION
+  OTHER
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -23,6 +38,7 @@ model User {
 
   trackers        TrackerItem[]
   containerAccess ContainerAccess[]
+  feedbackItems   Feedback[]
   sessions        Session[]
   settings        UserSettings?
 }
@@ -101,4 +117,25 @@ model Session {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model Feedback {
+  id          String         @id @default(cuid())
+  userId      String
+  summary     String?
+  message     String
+  type        FeedbackType   @default(OTHER)
+  status      FeedbackStatus @default(NEW)
+  pagePath    String?
+  adminNotes  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
 }

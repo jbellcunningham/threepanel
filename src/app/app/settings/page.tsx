@@ -1058,6 +1058,24 @@ async function onSave() {
                 type="button"
                 onClick={() => {
                   setShowMenu(false)
+                  router.push('/app/feedback')
+                }}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                Give Feedback
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
                   logout()
                 }}
                 style={{
@@ -1280,6 +1298,15 @@ async function onSave() {
             <>
               <div style={{ fontSize: 13, opacity: 0.75, marginTop: 12, marginBottom: 12 }}>
                 User management and read-only database inspection for testing and administration.
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => router.push('/app/admin/feedback')}
+                  style={{ height: 36, padding: '0 12px' }}
+                >
+                  Open Feedback Tracker
+                </button>
               </div>
 
           <section

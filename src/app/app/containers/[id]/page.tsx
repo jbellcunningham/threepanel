@@ -1121,6 +1121,24 @@ async function loadStats() {
                 type="button"
                 onClick={() => {
                   setShowMenu(false)
+                  router.push('/app/notifications')
+                }}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                Notifications
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
                   logout()
                 }}
                 style={{

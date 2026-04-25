@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from 'next'
+import PwaInit from '@/components/PwaInit'
 
 export const metadata: Metadata = {
   title: 'ThreePanel',
   description: 'Schema-driven container, reporting, and statistics platform.',
   manifest: '/manifest.webmanifest',
   icons: {
-    icon: '/icon-192.png',
-    shortcut: '/icon-192.png',
-    apple: '/apple-touch-icon.png',
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
   },
 }
 
@@ -22,7 +23,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <PwaInit />
+        {children}
+      </body>
     </html>
   )
 }

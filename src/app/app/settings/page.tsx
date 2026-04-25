@@ -34,6 +34,13 @@ type CreateUserForm = {
   role: CurrentUserRole
 }
 
+type AdminUserEditForm = {
+  email: string
+  password: string
+}
+
+type SettingsTab = 'general' | 'admin'
+
 type DbTableListItem = {
   name: string
   estimatedRowCount: number | null
@@ -114,6 +121,19 @@ function formatContainerTypeLabel(value: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
+}
+
+function buildAdminUserEditForms(users: AdminUserListItem[]) {
+  const forms: Record<string, AdminUserEditForm> = {}
+
+  for (const user of users) {
+    forms[user.id] = {
+      email: user.email,
+      password: '',
+    }
+  }
+
+  return forms
 }
 
 async function loadSettings(): Promise<Settings> {
@@ -301,10 +321,11 @@ export default function SettingsPage() {
   const [creatingUser, setCreatingUser] = useState(false)
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
   const [showCurrentUserSettings, setShowCurrentUserSettings] = useState(true)
-  const [showAdminSection, setShowAdminSection] = useState(false)
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('general')
   const [adminMsg, setAdminMsg] = useState<string | null>(null)
   const [adminError, setAdminError] = useState<string | null>(null)
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
+  const [adminUserEditForms, setAdminUserEditForms] = useState<Record<string, AdminUserEditForm>>({})
 
   const [dbTables, setDbTables] = useState<DbTableListItem[]>([])
   const [dbInspectorLoading, setDbInspectorLoading] = useState(false)
@@ -348,6 +369,7 @@ export default function SettingsPage() {
     loadAdminUsers()
       .then((users) => {
         setAdminUsers(users)
+        setAdminUserEditForms(buildAdminUserEditForms(users))
       })
       .finally(() => {
         setAdminUsersLoading(false)
@@ -355,28 +377,28 @@ export default function SettingsPage() {
   }, [currentUser])
 
   useEffect(() => {
-    if (currentUser?.role !== 'ADMIN' || !showAdminSection) {
+    if (currentUser?.role !== 'ADMIN' || settingsTab !== 'admin') {
       return
     }
 
     loadDbTables()
-  }, [currentUser, showAdminSection])
+  }, [currentUser, settingsTab])
 
   useEffect(() => {
-    if (currentUser?.role !== 'ADMIN' || !showAdminSection || !selectedDbTable) {
+    if (currentUser?.role !== 'ADMIN' || settingsTab !== 'admin' || !selectedDbTable) {
       return
     }
 
     loadDbTable(selectedDbTable)
-  }, [currentUser, showAdminSection, selectedDbTable])
+  }, [currentUser, settingsTab, selectedDbTable])
 
   useEffect(() => {
-    if (currentUser?.role !== 'ADMIN' || !showAdminSection) {
+    if (currentUser?.role !== 'ADMIN' || settingsTab !== 'admin') {
       return
     }
 
     loadContainerAccess()
-  }, [currentUser, showAdminSection])
+  }, [currentUser, settingsTab])
 
   useEffect(() => {
     function handleDocumentClick() {
@@ -471,6 +493,7 @@ function toggleSidebarType(type: string) {
     try {
       const users = await loadAdminUsers()
       setAdminUsers(users)
+      setAdminUserEditForms(buildAdminUserEditForms(users))
     } finally {
       setAdminUsersLoading(false)
     }
@@ -780,6 +803,73 @@ async function onSave() {
     await refreshAdminUsers()
   }
 
+  function updateAdminUserEditForm(
+    userId: string,
+    key: keyof AdminUserEditForm,
+    value: string
+  ) {
+    setAdminUserEditForms((prev) => ({
+      ...prev,
+      [userId]: {
+        email: prev[userId]?.email ?? '',
+        password: prev[userId]?.password ?? '',
+        [key]: value,
+      },
+    }))
+    setAdminMsg(null)
+    setAdminError(null)
+  }
+
+  async function saveAdminUserProfile(userId: string) {
+    const form = adminUserEditForms[userId]
+    if (!form) {
+      return
+    }
+
+    const email = form.email.trim().toLowerCase()
+    const password = form.password
+
+    if (!email && !password) {
+      setAdminError('Enter an email and/or password update first')
+      return
+    }
+
+    setUpdatingUserId(userId)
+    setAdminMsg(null)
+    setAdminError(null)
+
+    const payload: { email?: string; password?: string } = {}
+
+    if (email) payload.email = email
+    if (password) payload.password = password
+
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    const raw = await res.text()
+
+    let data: any = null
+    try {
+      data = raw ? JSON.parse(raw) : null
+    } catch {
+      data = null
+    }
+
+    if (!res.ok || !data?.ok) {
+      setAdminError(data?.error || raw || 'Failed to update user profile')
+      setUpdatingUserId(null)
+      return
+    }
+
+    setAdminMsg('User profile updated.')
+    setUpdatingUserId(null)
+    await refreshAdminUsers()
+  }
+
   async function deleteUser(userId: string, email: string) {
     const confirmed = confirm(
       `Delete user "${email}"?\n\nThis will permanently delete all of their containers and data.`
@@ -988,6 +1078,48 @@ async function onSave() {
 
       <section
         style={{
+          marginTop: 12,
+          display: 'flex',
+          gap: 8,
+          flexWrap: 'wrap',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setSettingsTab('general')}
+          style={{
+            height: 34,
+            padding: '0 12px',
+            borderRadius: 999,
+            border: '1px solid rgba(0,0,0,0.12)',
+            background: settingsTab === 'general' ? 'rgba(0,0,0,0.08)' : 'transparent',
+            fontWeight: settingsTab === 'general' ? 700 : 400,
+          }}
+        >
+          General
+        </button>
+
+        {currentUser?.role === 'ADMIN' && (
+          <button
+            type="button"
+            onClick={() => setSettingsTab('admin')}
+            style={{
+              height: 34,
+              padding: '0 12px',
+              borderRadius: 999,
+              border: '1px solid rgba(0,0,0,0.12)',
+              background: settingsTab === 'admin' ? 'rgba(0,0,0,0.08)' : 'transparent',
+              fontWeight: settingsTab === 'admin' ? 700 : 400,
+            }}
+          >
+            Admin
+          </button>
+        )}
+      </section>
+
+      {settingsTab === 'general' && (
+      <section
+        style={{
           marginTop: 16,
           border: '1px solid rgba(0,0,0,0.12)',
           borderRadius: 12,
@@ -1133,8 +1265,9 @@ async function onSave() {
           </div>
         )}
       </section>
+      )}
 
-      {currentUser?.role === 'ADMIN' && (
+      {currentUser?.role === 'ADMIN' && settingsTab === 'admin' && (
         <section
           style={{
             marginTop: 16,
@@ -1143,26 +1276,7 @@ async function onSave() {
             padding: 16,
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 12,
-            }}
-          >
-            <h2 style={{ margin: 0, fontSize: 18 }}>Admin</h2>
-
-            <button
-              type="button"
-              onClick={() => setShowAdminSection((prev) => !prev)}
-              style={{ height: 36, padding: '0 12px' }}
-            >
-              {showAdminSection ? 'Hide' : 'Show'}
-            </button>
-          </div>
-
-          {showAdminSection && (
+          <h2 style={{ margin: 0, fontSize: 18 }}>Admin</h2>
             <>
               <div style={{ fontSize: 13, opacity: 0.75, marginTop: 12, marginBottom: 12 }}>
                 User management and read-only database inspection for testing and administration.
@@ -1500,6 +1614,41 @@ async function onSave() {
                       <option value="ADMIN">ADMIN</option>
                       <option value="REPORTING">REPORTING</option>
                     </select>
+                    <input
+                      value={adminUserEditForms[user.id]?.email ?? user.email}
+                      onChange={(e) =>
+                        updateAdminUserEditForm(user.id, 'email', e.target.value)
+                      }
+                      placeholder="Email"
+                      disabled={updatingUserId === user.id}
+                      style={{ padding: '8px 10px', minWidth: 220 }}
+                    />
+                    <input
+                      type="password"
+                      value={adminUserEditForms[user.id]?.password ?? ''}
+                      onChange={(e) =>
+                        updateAdminUserEditForm(user.id, 'password', e.target.value)
+                      }
+                      placeholder="New password (optional)"
+                      disabled={updatingUserId === user.id}
+                      style={{ padding: '8px 10px', minWidth: 220 }}
+                    />
+                    <button
+                      type="button"
+                      title="Save email/password updates"
+                      onClick={() => saveAdminUserProfile(user.id)}
+                      disabled={updatingUserId === user.id}
+                      style={{
+                        height: 32,
+                        padding: '0 10px',
+                        borderRadius: 8,
+                        border: '1px solid rgba(0,0,0,0.12)',
+                        background: 'transparent',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Save Profile
+                    </button>
                     <button
                       type="button"
                       title="Delete user"
@@ -1530,16 +1679,17 @@ async function onSave() {
             </div>
           )}
             </>
-          )}
         </section>
       )}
 
+      {settingsTab === 'general' && (
       <div style={{ marginTop: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
         <button onClick={onSave} disabled={!canSave} style={{ height: 38, padding: '0 14px' }}>
           Save
         </button>
         {savedMsg && <span style={{ fontSize: 12, opacity: 0.8 }}>{savedMsg}</span>}
       </div>
+      )}
     </main>
   )
 }

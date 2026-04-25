@@ -14,6 +14,7 @@
    ========================================================= */
 
 import { NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 
@@ -25,6 +26,11 @@ type RouteContext = {
   params: Promise<{
     id: string
   }>
+}
+
+type UpdateUserBody = {
+  email?: string
+  password?: string
 }
 
 /* =========================================================
@@ -101,4 +107,99 @@ export async function DELETE(_req: Request, context: RouteContext) {
   })
 
   return NextResponse.json({ ok: true })
+}
+
+export async function PATCH(req: Request, context: RouteContext) {
+  const auth = await requireAdmin()
+
+  if (!auth.ok) {
+    return auth.response
+  }
+
+  const { id } = await context.params
+
+  let body: UpdateUserBody
+
+  try {
+    body = (await req.json()) as UpdateUserBody
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: 'Invalid JSON body' },
+      { status: 400 }
+    )
+  }
+
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+  const password = typeof body.password === 'string' ? body.password : ''
+
+  if (!email && !password) {
+    return NextResponse.json(
+      { ok: false, error: 'Provide email and/or password to update' },
+      { status: 400 }
+    )
+  }
+
+  if (password && password.length < 8) {
+    return NextResponse.json(
+      { ok: false, error: 'Password must be at least 8 characters' },
+      { status: 400 }
+    )
+  }
+
+  const existing = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, email: true }
+  })
+
+  if (!existing) {
+    return NextResponse.json(
+      { ok: false, error: 'User not found' },
+      { status: 404 }
+    )
+  }
+
+  if (email && email !== existing.email) {
+    const emailInUse = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true }
+    })
+
+    if (emailInUse) {
+      return NextResponse.json(
+        { ok: false, error: 'Email already registered' },
+        { status: 409 }
+      )
+    }
+  }
+
+  const data: { email?: string; passwordHash?: string } = {}
+
+  if (email) {
+    data.email = email
+  }
+
+  if (password) {
+    data.passwordHash = await bcrypt.hash(password, 12)
+  }
+
+  const user = await prisma.user.update({
+    where: { id: existing.id },
+    data,
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      createdAt: true,
+      updatedAt: true
+    }
+  })
+
+  return NextResponse.json({
+    ok: true,
+    user: {
+      ...user,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString()
+    }
+  })
 }

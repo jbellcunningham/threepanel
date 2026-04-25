@@ -35,7 +35,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { getContainerTypeDisplay } from '@/lib/containerTypeDisplay'
 import TrackerLineChart from '@/components/charts/TrackerLineChart'
 
@@ -397,6 +397,8 @@ export default function ContainerDetailPage() {
 
   // Edit mode state
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
+  const entryFormRef = useRef<HTMLElement | null>(null)
+  const firstFieldRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null)
 
   /* -----------------------------
      Derived values
@@ -706,40 +708,6 @@ async function loadStats() {
   async function toggleContainerDone() {
     if (!containerId || item?.type?.toLowerCase?.() !== 'todo') return
 
-    const nextDone = !Boolean((item as any)?.done)
-    const now = new Date().toISOString()
-
-    const res = await fetch(`/api/tracker/${containerId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        done: nextDone,
-        doneAt: nextDone ? now : null,
-        statusUpdatedAt: now
-      })
-    })
-
-    const raw = await res.text()
-
-    let data: any = null
-    try {
-      data = raw ? JSON.parse(raw) : null
-    } catch {
-      data = null
-    }
-
-    if (!res.ok || !data?.ok) {
-      setError(data?.error || raw || 'Failed to update container')
-      return
-    }
-
-    await load()
-  }
-
-  async function toggleContainerDone() {
-    if (!containerId || item?.type?.toLowerCase?.() !== 'todo') return
-
     const nextDone = !Boolean(item?.done)
     const now = new Date().toISOString()
 
@@ -910,6 +878,25 @@ async function loadStats() {
       document.removeEventListener('click', handleDocumentClick)
     }
   }, [showMenu])
+
+  useEffect(() => {
+    if (!isEditing || !showEntryForm) {
+      return
+    }
+
+    entryFormRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    })
+
+    const focusTimer = window.setTimeout(() => {
+      firstFieldRef.current?.focus()
+    }, 220)
+
+    return () => {
+      window.clearTimeout(focusTimer)
+    }
+  }, [isEditing, showEntryForm])
 
   /* =========================================================
      8) Render
@@ -1237,6 +1224,7 @@ async function loadStats() {
           {/* Entry Form */}
           {showEntryForm && (
             <section
+              ref={entryFormRef}
               style={{
                 marginTop: 18,
                 border: '1px solid rgba(0,0,0,0.12)',
@@ -1252,7 +1240,7 @@ async function loadStats() {
                 <div style={{ opacity: 0.75 }}>This container has no schema yet.</div>
               ) : (
                 <div style={{ display: 'grid', gap: 12 }}>
-                {schema.fields.map((field) => {
+                {schema.fields.map((field, index) => {
                   const value = formData[field.id]
 
                   return (
@@ -1265,6 +1253,7 @@ async function loadStats() {
                       {field.type === 'boolean' ? (
                         <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <input
+                            ref={index === 0 ? firstFieldRef : null}
                             type="checkbox"
                             checked={Boolean(value)}
                             onChange={(e) => setFieldValue(field, e.target.checked)}
@@ -1274,6 +1263,7 @@ async function loadStats() {
                       ) : field.type === 'dropdown' ? (
                         <>
                           <input
+                            ref={index === 0 ? firstFieldRef : null}
                             list={`datalist-${field.id}`}
                             value={typeof value === 'string' ? value : ''}
                             onChange={(e) => setFieldValue(field, e.target.value)}
@@ -1293,6 +1283,9 @@ async function loadStats() {
                       ) : field.type === 'textarea' ? (
                         <textarea
                           ref={(el) => {
+                            if (index === 0) {
+                              firstFieldRef.current = el
+                            }
                             if (el) {
                               el.style.height = 'auto'
                               el.style.height = `${el.scrollHeight}px`
@@ -1318,6 +1311,7 @@ async function loadStats() {
                         />
                       ) : (
                         <input
+                          ref={index === 0 ? firstFieldRef : null}
                           type={
                             field.type === 'number'
                               ? 'number'

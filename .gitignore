@@ -33,6 +33,7 @@ docker-data/
 data/
 postgres-data/
 db-data/
+backups/
 *.pid
 
 # test coverage

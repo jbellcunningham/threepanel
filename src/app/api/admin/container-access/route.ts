@@ -110,7 +110,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     users,
-    containers: containers.map((container: { id: string; title: string; type: string; userId: string; createdAt: Date; user: { email: string } }) => ({
+    containers: containers.map((container) => ({
       id: container.id,
       title: container.title,
       type: container.type,
@@ -118,7 +118,7 @@ export async function GET() {
       ownerEmail: container.user.email,
       createdAt: container.createdAt.toISOString(),
     })),
-    access: access.map((grant: { id: string; userId: string; trackerItemId: string; accessType: string; createdAt: Date }) => ({
+    access: access.map((grant) => ({
       id: grant.id,
       userId: grant.userId,
       trackerItemId: grant.trackerItemId,

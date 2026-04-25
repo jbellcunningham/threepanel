@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 function base64UrlToUint8Array(base64Url: string) {
   const padding = '='.repeat((4 - (base64Url.length % 4)) % 4)
@@ -14,6 +15,7 @@ function base64UrlToUint8Array(base64Url: string) {
 }
 
 export default function NotificationsPage() {
+  const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -147,10 +149,29 @@ export default function NotificationsPage() {
 
   return (
     <main style={{ maxWidth: 720 }}>
-      <h1 style={{ marginTop: 0, marginBottom: 6 }}>Notifications</h1>
-      <p style={{ opacity: 0.75, marginTop: 0 }}>
-        Enable push notifications for overdue reminders and app alerts.
-      </p>
+      <section
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <h1 style={{ marginTop: 0, marginBottom: 6 }}>Notifications</h1>
+          <p style={{ opacity: 0.75, marginTop: 0 }}>
+            Enable push notifications for overdue reminders and app alerts.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => router.push('/app/containers')}
+          style={{ height: 36, padding: '0 12px' }}
+        >
+          Back to App
+        </button>
+      </section>
 
       <section
         style={{

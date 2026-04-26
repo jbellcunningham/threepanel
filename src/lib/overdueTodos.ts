@@ -1,6 +1,12 @@
 import { prisma } from '@/lib/prisma'
 
 type OverdueCountsByUser = Record<string, number>
+export type OverdueNotificationTarget = {
+  overdueCount: number
+  targetContainerId: string | null
+}
+
+export type OverdueNotificationTargetsByUser = Record<string, OverdueNotificationTarget>
 
 function parseDueDate(value: unknown): Date | null {
   if (typeof value !== 'string') {
@@ -76,4 +82,73 @@ export async function getOverdueTodoCountsByUser(now = new Date()): Promise<Over
 export async function getOverdueTodoCountForUser(userId: string, now = new Date()): Promise<number> {
   const counts = await getOverdueTodoCountsByUser(now)
   return counts[userId] ?? 0
+}
+
+export async function getOverdueTodoNotificationTargetsByUser(
+  now = new Date()
+): Promise<OverdueNotificationTargetsByUser> {
+  const todoContainers = await prisma.trackerItem.findMany({
+    where: {
+      type: 'todo',
+    },
+    select: {
+      id: true,
+      userId: true,
+      entries: {
+        select: {
+          data: true,
+        },
+      },
+    },
+  })
+
+  const targets: OverdueNotificationTargetsByUser = {}
+  const nearestDueByUser: Record<string, number> = {}
+
+  for (const container of todoContainers) {
+    let containerOverdueCount = 0
+    let nearestOverdueDueTime: number | null = null
+
+    for (const entry of container.entries) {
+      const data = entry.data as Record<string, unknown> | null
+      if (!data || isDone(data.done)) {
+        continue
+      }
+
+      const dueDate = parseDueDate(data.due_at ?? data.dueAt)
+      if (!dueDate || dueDate.getTime() >= now.getTime()) {
+        continue
+      }
+
+      containerOverdueCount += 1
+
+      const dueTime = dueDate.getTime()
+      if (nearestOverdueDueTime === null || dueTime < nearestOverdueDueTime) {
+        nearestOverdueDueTime = dueTime
+      }
+    }
+
+    if (containerOverdueCount <= 0 || nearestOverdueDueTime === null) {
+      continue
+    }
+
+    const existing = targets[container.userId]
+    if (!existing) {
+      targets[container.userId] = {
+        overdueCount: containerOverdueCount,
+        targetContainerId: container.id,
+      }
+      nearestDueByUser[container.userId] = nearestOverdueDueTime
+      continue
+    }
+
+    existing.overdueCount += containerOverdueCount
+    const existingNearest = nearestDueByUser[container.userId]
+    if (existingNearest === undefined || nearestOverdueDueTime < existingNearest) {
+      existing.targetContainerId = container.id
+      nearestDueByUser[container.userId] = nearestOverdueDueTime
+    }
+  }
+
+  return targets
 }

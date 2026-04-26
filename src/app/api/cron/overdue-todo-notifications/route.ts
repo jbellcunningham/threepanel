@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getOverdueTodoCountsByUser } from '@/lib/overdueTodos'
+import { getOverdueTodoNotificationTargetsByUser } from '@/lib/overdueTodos'
 import { sendPushToUser } from '@/lib/webPush'
 
 const NOTIFICATION_INTERVAL_MS = 60 * 60 * 1000
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   }
 
   const now = new Date()
-  const overdueByUser = await getOverdueTodoCountsByUser(now)
+  const overdueByUser = await getOverdueTodoNotificationTargetsByUser(now)
   const userIds = Object.keys(overdueByUser)
 
   if (userIds.length === 0) {
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   let skippedUsers = 0
 
   for (const userId of userIds) {
-    const overdueCount = overdueByUser[userId] ?? 0
+    const overdueCount = overdueByUser[userId]?.overdueCount ?? 0
     if (overdueCount <= 0) {
       continue
     }
@@ -57,13 +57,18 @@ export async function POST(req: Request) {
       continue
     }
 
+    const targetContainerId = overdueByUser[userId]?.targetContainerId
+    const deepLinkUrl = targetContainerId
+      ? `/app/containers/${targetContainerId}?subtaskFilter=overdue`
+      : '/app/notifications'
+
     const pushResult = await sendPushToUser(userId, {
       title: 'Overdue To-Dos',
       body:
         overdueCount === 1
           ? 'You have 1 overdue to-do item.'
           : `You have ${overdueCount} overdue to-do items.`,
-      url: '/app/notifications',
+      url: deepLinkUrl,
     })
 
     if (!pushResult.ok) {

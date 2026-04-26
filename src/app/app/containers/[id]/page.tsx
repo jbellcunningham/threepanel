@@ -34,7 +34,7 @@
    ========================================================= */
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getContainerTypeDisplay } from '@/lib/containerTypeDisplay'
 import TrackerLineChart from '@/components/charts/TrackerLineChart'
@@ -461,6 +461,7 @@ function getTodoDueMeta(entry: TrackerEntry, now = new Date()) {
 
 export default function ContainerDetailPage() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const router = useRouter()
   const containerId = useMemo(() => getContainerIdFromPathname(pathname), [pathname])
   
@@ -1088,6 +1089,19 @@ async function loadStats() {
       window.clearTimeout(focusTimer)
     }
   }, [isEditing, showEntryForm])
+
+  useEffect(() => {
+    const filterFromUrl = (searchParams.get('subtaskFilter') || '').trim().toLowerCase()
+    if (
+      filterFromUrl === 'all' ||
+      filterFromUrl === 'overdue' ||
+      filterFromUrl === 'due_today' ||
+      filterFromUrl === 'open' ||
+      filterFromUrl === 'done'
+    ) {
+      setTodoQuickFilter(filterFromUrl)
+    }
+  }, [searchParams])
 
   /* =========================================================
      8) Render

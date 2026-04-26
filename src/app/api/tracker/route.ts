@@ -375,6 +375,48 @@ function countOpenTodoEntries(entries: ListEntry[]) {
   return openCount
 }
 
+function parseTodoDueDate(value: unknown): Date | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const parsed = new Date(`${trimmed}T23:59:59.999Z`)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  const parsed = new Date(trimmed)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function countOverdueTodoEntries(entries: ListEntry[]) {
+  let overdueCount = 0
+  const now = new Date()
+
+  entries.forEach((entry) => {
+    const data = getEntryDataRecord(entry.data)
+    if (data.done === true) {
+      return
+    }
+
+    const dueDate = parseTodoDueDate(data.due_at ?? data.dueAt)
+    if (!dueDate) {
+      return
+    }
+
+    if (dueDate.getTime() < now.getTime()) {
+      overdueCount += 1
+    }
+  })
+
+  return overdueCount
+}
+
 function getLastEntryAt(entries: ListEntry[]) {
   if (entries.length === 0) {
     return null
@@ -390,6 +432,7 @@ function buildSummary(type: string, entries: ListEntry[]) {
     return {
       entryCount: entries.length,
       openSubtaskCount: countOpenTodoEntries(entries),
+      overdueSubtaskCount: countOverdueTodoEntries(entries),
       lastEntryAt
     }
   }

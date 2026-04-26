@@ -32,6 +32,7 @@ import { getContainerTypeDisplay } from '@/lib/containerTypeDisplay'
 type ContainerSummary = {
   entryCount?: number
   openSubtaskCount?: number
+  overdueSubtaskCount?: number
   lastEntryAt?: string | null
 }
 
@@ -136,10 +137,15 @@ function getContainerSummaryText(item: ContainerItem) {
   const entryCount = typeof item.summary?.entryCount === 'number' ? item.summary.entryCount : 0
   const openSubtaskCount =
     typeof item.summary?.openSubtaskCount === 'number' ? item.summary.openSubtaskCount : 0
+  const overdueSubtaskCount =
+    typeof item.summary?.overdueSubtaskCount === 'number' ? item.summary.overdueSubtaskCount : 0
   const lastEntryAt =
     typeof item.summary?.lastEntryAt === 'string' ? item.summary.lastEntryAt : null
 
   if (item.type === 'todo') {
+    if (overdueSubtaskCount > 0) {
+      return `${openSubtaskCount} open • ${overdueSubtaskCount} overdue`
+    }
     return `${openSubtaskCount} open subtasks`
   }
 
@@ -900,9 +906,32 @@ async function loadContainerTypes() {
                   <div
                     style={{
                       fontWeight: 700,
-                      textDecoration: it.type === 'todo' && it.done ? 'line-through' : 'none'
+                      textDecoration: it.type === 'todo' && it.done ? 'line-through' : 'none',
+                      color:
+                        it.type === 'todo' &&
+                        (it.summary?.overdueSubtaskCount ?? 0) > 0 &&
+                        !it.done
+                          ? '#b91c1c'
+                          : 'inherit',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
                     }}
                   >
+                    {it.type === 'todo' &&
+                    (it.summary?.overdueSubtaskCount ?? 0) > 0 &&
+                    !it.done ? (
+                      <span
+                        title="Contains overdue subtasks"
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: '#dc2626',
+                          flexShrink: 0,
+                        }}
+                      />
+                    ) : null}
                     {it.title}
                   </div>
 

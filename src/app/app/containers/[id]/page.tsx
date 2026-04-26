@@ -126,6 +126,7 @@ type TimeSeriesPoint = {
 };
 
 type TrackerTimeSeries = Record<string, TimeSeriesPoint[]>;
+type TodoQuickFilter = 'all' | 'overdue' | 'due_today' | 'open' | 'done'
 
 type ContainerTypesResponse = {
   ok: true
@@ -365,6 +366,94 @@ function formatChartDateLabel(value: string, showTime: boolean): string {
   return `${month}/${day}/${year} ${hours}:${minutes}`
 }
 
+function parseTodoDueDate(value: unknown): Date | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const parsed = new Date(`${trimmed}T23:59:59.999Z`)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  const parsed = new Date(trimmed)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function formatOverdueAge(from: Date, to = new Date()) {
+  const diffMs = Math.max(0, to.getTime() - from.getTime())
+  const dayMs = 24 * 60 * 60 * 1000
+  const days = Math.floor(diffMs / dayMs)
+
+  if (days <= 0) {
+    return 'Overdue today'
+  }
+
+  if (days === 1) {
+    return '1 day overdue'
+  }
+
+  return `${days} days overdue`
+}
+
+function getTodoDueMeta(entry: TrackerEntry, now = new Date()) {
+  const dueDate = parseTodoDueDate(entry.data?.due_at ?? entry.data?.dueAt)
+  const done = Boolean(entry.data?.done)
+
+  if (!dueDate) {
+    return {
+      hasDueDate: false,
+      done,
+      overdue: false,
+      dueDate: null as Date | null,
+      statusLabel: done ? 'Done' : 'Open',
+      detail: done ? 'Completed (no due date)' : 'No due date',
+      sortRank: done ? 4 : 3,
+    }
+  }
+
+  if (done) {
+    return {
+      hasDueDate: true,
+      done: true,
+      overdue: false,
+      dueDate,
+      statusLabel: 'Done',
+      detail: `Due ${formatDate(dueDate.toISOString())}`,
+      sortRank: 4,
+    }
+  }
+
+  if (dueDate.getTime() < now.getTime()) {
+    return {
+      hasDueDate: true,
+      done: false,
+      overdue: true,
+      dueDate,
+      statusLabel: 'Overdue',
+      detail: formatOverdueAge(dueDate, now),
+      sortRank: 1,
+    }
+  }
+
+  const isToday = dueDate.toDateString() === now.toDateString()
+
+  return {
+    hasDueDate: true,
+    done: false,
+    overdue: false,
+    dueDate,
+    statusLabel: isToday ? 'Due today' : 'Open',
+    detail: `Due ${formatDate(dueDate.toISOString())}`,
+    sortRank: isToday ? 2 : 3,
+  }
+}
+
 /* =========================================================
    4) Component
    ========================================================= */
@@ -394,6 +483,7 @@ export default function ContainerDetailPage() {
   const [showMenu, setShowMenu] = useState(false)
   const [availableContainerTypes, setAvailableContainerTypes] = useState<string[]>([])
   const [overdueCount, setOverdueCount] = useState(0)
+  const [todoQuickFilter, setTodoQuickFilter] = useState<TodoQuickFilter>('all')
   const hasFieldStats = stats ? Object.keys(stats.fields).length > 0 : false
 
   // Edit mode state
@@ -448,6 +538,54 @@ export default function ContainerDetailPage() {
 
     return true
   }, [formData, saving, schema])
+
+  const sortedEntries = useMemo(() => {
+    if (!isTodoLikeContainer) {
+      return entries
+    }
+
+    return [...entries].sort((a, b) => {
+      const now = new Date()
+      const metaA = getTodoDueMeta(a, now)
+      const metaB = getTodoDueMeta(b, now)
+
+      if (metaA.sortRank !== metaB.sortRank) {
+        return metaA.sortRank - metaB.sortRank
+      }
+
+      const aTime = new Date(a.createdAt).getTime()
+      const bTime = new Date(b.createdAt).getTime()
+      return bTime - aTime
+    })
+  }, [entries, isTodoLikeContainer])
+
+  const filteredEntries = useMemo(() => {
+    if (!isTodoLikeContainer || todoQuickFilter === 'all') {
+      return sortedEntries
+    }
+
+    return sortedEntries.filter((entry) => {
+      const meta = getTodoDueMeta(entry)
+
+      if (todoQuickFilter === 'overdue') {
+        return meta.overdue
+      }
+
+      if (todoQuickFilter === 'due_today') {
+        return meta.statusLabel === 'Due today'
+      }
+
+      if (todoQuickFilter === 'open') {
+        return !meta.done
+      }
+
+      if (todoQuickFilter === 'done') {
+        return meta.done
+      }
+
+      return true
+    })
+  }, [sortedEntries, isTodoLikeContainer, todoQuickFilter])
 
   /* =========================================================
      5) Data loaders
@@ -1734,12 +1872,53 @@ async function loadStats() {
               <>
                 <h2 style={{ fontSize: 16, marginBottom: 8 }}>Previous Entries</h2>
 
-                {entries.length === 0 ? (
+                {isTodoLikeContainer && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                      marginBottom: 10,
+                    }}
+                  >
+                    {([
+                      ['all', 'All'],
+                      ['overdue', 'Overdue'],
+                      ['due_today', 'Due Today'],
+                      ['open', 'Open'],
+                      ['done', 'Done'],
+                    ] as Array<[TodoQuickFilter, string]>).map(([value, label]) => {
+                      const active = todoQuickFilter === value
+
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setTodoQuickFilter(value)}
+                          style={{
+                            height: 30,
+                            padding: '0 10px',
+                            borderRadius: 999,
+                            border: '1px solid rgba(0,0,0,0.12)',
+                            background: active ? 'rgba(0,0,0,0.08)' : 'transparent',
+                            fontWeight: active ? 700 : 500,
+                            fontSize: 12,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {filteredEntries.length === 0 ? (
                   <div style={{ opacity: 0.75 }}>No entries yet.</div>
                 ) : (
                   <div style={{ display: 'grid', gap: 10 }}>
-                {entries.map((entry) => {
+                {filteredEntries.map((entry) => {
                   const entryDone = Boolean(entry.data?.done)
+                  const dueMeta = getTodoDueMeta(entry)
 
                   return (
                     <div
@@ -1780,6 +1959,45 @@ async function loadStats() {
                           >
                             {formatEntrySummary(schema, entry, 'cards')}
                           </div>
+                          {isTodoLikeContainer && (
+                            <div
+                              style={{
+                                display: 'grid',
+                                gap: 4,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  height: 20,
+                                  padding: '0 8px',
+                                  borderRadius: 999,
+                                  border: '1px solid rgba(0,0,0,0.12)',
+                                  background: dueMeta.overdue
+                                    ? 'rgba(220,38,38,0.12)'
+                                    : dueMeta.statusLabel === 'Due today'
+                                    ? 'rgba(245,158,11,0.15)'
+                                    : 'rgba(0,0,0,0.04)',
+                                  color: dueMeta.overdue ? '#b91c1c' : 'inherit',
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  width: 'fit-content',
+                                }}
+                              >
+                                {dueMeta.statusLabel.toUpperCase()}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: 12,
+                                  opacity: 0.78,
+                                  color: dueMeta.overdue ? '#b91c1c' : 'inherit',
+                                }}
+                              >
+                                {dueMeta.detail}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>

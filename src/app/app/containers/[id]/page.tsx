@@ -1963,7 +1963,7 @@ async function loadStats() {
                             <div
                               style={{
                                 display: 'grid',
-                                gap: 4,
+                                gap: 2,
                               }}
                             >
                               <span
@@ -1986,15 +1986,6 @@ async function loadStats() {
                                 }}
                               >
                                 {dueMeta.statusLabel.toUpperCase()}
-                              </span>
-                              <span
-                                style={{
-                                  fontSize: 12,
-                                  opacity: 0.78,
-                                  color: dueMeta.overdue ? '#b91c1c' : 'inherit',
-                                }}
-                              >
-                                {dueMeta.detail}
                               </span>
                             </div>
                           )}
@@ -2072,6 +2063,18 @@ async function loadStats() {
                       <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
                         Created: {formatDate(entry.createdAt)}
                       </div>
+                      {isTodoLikeContainer && dueMeta.hasDueDate && dueMeta.dueDate && (
+                        <div
+                          style={{
+                            fontSize: 12,
+                            opacity: 0.78,
+                            color: dueMeta.overdue ? '#b91c1c' : 'inherit',
+                          }}
+                        >
+                          Due: {formatDate(dueMeta.dueDate.toISOString())}
+                          {dueMeta.overdue ? ` (${dueMeta.detail.toLowerCase()})` : ''}
+                        </div>
+                      )}
                       {entry.updatedAt && (
                         <div style={{ fontSize: 12, opacity: 0.7 }}>
                           Updated: {formatDate(entry.updatedAt)}

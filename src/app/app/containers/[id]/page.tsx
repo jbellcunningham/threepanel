@@ -484,6 +484,7 @@ export default function ContainerDetailPage() {
   const [availableContainerTypes, setAvailableContainerTypes] = useState<string[]>([])
   const [overdueCount, setOverdueCount] = useState(0)
   const [todoQuickFilter, setTodoQuickFilter] = useState<TodoQuickFilter>('all')
+  const [expandedMetaEntryIds, setExpandedMetaEntryIds] = useState<Record<string, boolean>>({})
   const hasFieldStats = stats ? Object.keys(stats.fields).length > 0 : false
 
   // Edit mode state
@@ -986,6 +987,13 @@ async function loadStats() {
 
     await load()
     await loadStats()
+  }
+
+  function toggleEntryMeta(entryId: string) {
+    setExpandedMetaEntryIds((prev) => ({
+      ...prev,
+      [entryId]: !prev[entryId],
+    }))
   }
 
   /* =========================================================
@@ -1919,6 +1927,7 @@ async function loadStats() {
                 {filteredEntries.map((entry) => {
                   const entryDone = Boolean(entry.data?.done)
                   const dueMeta = getTodoDueMeta(entry)
+                  const isMetaExpanded = Boolean(expandedMetaEntryIds[entry.id])
 
                   return (
                     <div
@@ -2060,24 +2069,50 @@ async function loadStats() {
                         </div>
                       ) : null}
 
-                      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-                        Created: {formatDate(entry.createdAt)}
-                      </div>
                       {isTodoLikeContainer && dueMeta.hasDueDate && dueMeta.dueDate && (
                         <div
                           style={{
                             fontSize: 12,
                             opacity: 0.78,
                             color: dueMeta.overdue ? '#b91c1c' : 'inherit',
+                            marginTop: 6,
                           }}
                         >
                           Due: {formatDate(dueMeta.dueDate.toISOString())}
                           {dueMeta.overdue ? ` (${dueMeta.detail.toLowerCase()})` : ''}
                         </div>
                       )}
-                      {entry.updatedAt && (
-                        <div style={{ fontSize: 12, opacity: 0.7 }}>
-                          Updated: {formatDate(entry.updatedAt)}
+                      <button
+                        type="button"
+                        title={isMetaExpanded ? 'Hide details' : 'Show details'}
+                        onClick={() => toggleEntryMeta(entry.id)}
+                        style={{
+                          marginTop: 4,
+                          height: 22,
+                          width: 22,
+                          borderRadius: 999,
+                          border: '1px solid rgba(0,0,0,0.12)',
+                          background: 'transparent',
+                          fontSize: 12,
+                          lineHeight: '12px',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {isMetaExpanded ? '▾' : '▸'}
+                      </button>
+                      {isMetaExpanded && (
+                        <div style={{ marginTop: 4 }}>
+                          <div style={{ fontSize: 12, opacity: 0.7 }}>
+                            Created: {formatDate(entry.createdAt)}
+                          </div>
+                          {entry.updatedAt && (
+                            <div style={{ fontSize: 12, opacity: 0.7 }}>
+                              Updated: {formatDate(entry.updatedAt)}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

@@ -127,6 +127,7 @@ type TimeSeriesPoint = {
 
 type TrackerTimeSeries = Record<string, TimeSeriesPoint[]>;
 type TodoQuickFilter = 'all' | 'overdue' | 'due_today' | 'open' | 'done'
+type TodoSortMode = 'priority' | 'due_soonest' | 'newest' | 'oldest'
 
 type ContainerTypesResponse = {
   ok: true
@@ -484,6 +485,7 @@ export default function ContainerDetailPage() {
   const [availableContainerTypes, setAvailableContainerTypes] = useState<string[]>([])
   const [overdueCount, setOverdueCount] = useState(0)
   const [todoQuickFilter, setTodoQuickFilter] = useState<TodoQuickFilter>('all')
+  const [todoSortMode, setTodoSortMode] = useState<TodoSortMode>('priority')
   const [expandedMetaEntryIds, setExpandedMetaEntryIds] = useState<Record<string, boolean>>({})
   const hasFieldStats = stats ? Object.keys(stats.fields).length > 0 : false
 
@@ -550,15 +552,39 @@ export default function ContainerDetailPage() {
       const metaA = getTodoDueMeta(a, now)
       const metaB = getTodoDueMeta(b, now)
 
+      const aTime = new Date(a.createdAt).getTime()
+      const bTime = new Date(b.createdAt).getTime()
+
+      if (todoSortMode === 'newest') {
+        return bTime - aTime
+      }
+
+      if (todoSortMode === 'oldest') {
+        return aTime - bTime
+      }
+
+      if (todoSortMode === 'due_soonest') {
+        const aDue = metaA.dueDate?.getTime() ?? Number.POSITIVE_INFINITY
+        const bDue = metaB.dueDate?.getTime() ?? Number.POSITIVE_INFINITY
+
+        if (aDue !== bDue) {
+          return aDue - bDue
+        }
+
+        if (metaA.done !== metaB.done) {
+          return metaA.done ? 1 : -1
+        }
+
+        return bTime - aTime
+      }
+
       if (metaA.sortRank !== metaB.sortRank) {
         return metaA.sortRank - metaB.sortRank
       }
 
-      const aTime = new Date(a.createdAt).getTime()
-      const bTime = new Date(b.createdAt).getTime()
       return bTime - aTime
     })
-  }, [entries, isTodoLikeContainer])
+  }, [entries, isTodoLikeContainer, todoSortMode])
 
   const filteredEntries = useMemo(() => {
     if (!isTodoLikeContainer || todoQuickFilter === 'all') {
@@ -1918,6 +1944,23 @@ async function loadStats() {
                         </button>
                       )
                     })}
+                    <select
+                      value={todoSortMode}
+                      onChange={(e) => setTodoSortMode(e.target.value as TodoSortMode)}
+                      style={{
+                        height: 30,
+                        padding: '0 10px',
+                        borderRadius: 999,
+                        border: '1px solid rgba(0,0,0,0.12)',
+                        background: 'transparent',
+                        fontSize: 12,
+                      }}
+                    >
+                      <option value="priority">Sort: Priority</option>
+                      <option value="due_soonest">Sort: Due Date (soonest)</option>
+                      <option value="newest">Sort: Newest</option>
+                      <option value="oldest">Sort: Oldest</option>
+                    </select>
                   </div>
                 )}
                 {filteredEntries.length === 0 ? (

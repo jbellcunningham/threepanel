@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 
 function base64UrlToUint8Array(base64Url: string) {
   const padding = '='.repeat((4 - (base64Url.length % 4)) % 4)
@@ -19,6 +20,7 @@ export default function NotificationsPage() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [overdueCount, setOverdueCount] = useState(0)
 
   async function subscribe() {
     setBusy(true)
@@ -147,6 +149,27 @@ export default function NotificationsPage() {
     setBusy(false)
   }
 
+  async function loadOverdueCount() {
+    try {
+      const res = await fetch('/api/notifications/overdue-count', {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+      if (!res.ok) {
+        setOverdueCount(0)
+        return
+      }
+      const data = await res.json().catch(() => null)
+      setOverdueCount(typeof data?.overdueCount === 'number' ? data.overdueCount : 0)
+    } catch {
+      setOverdueCount(0)
+    }
+  }
+
+  useEffect(() => {
+    loadOverdueCount()
+  }, [])
+
   return (
     <main style={{ maxWidth: 720 }}>
       <section
@@ -183,6 +206,9 @@ export default function NotificationsPage() {
           gap: 10,
         }}
       >
+        <div style={{ fontSize: 13, opacity: 0.85 }}>
+          Current overdue to-do count: <strong>{overdueCount}</strong>
+        </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" onClick={subscribe} disabled={busy} style={{ height: 36, padding: '0 12px' }}>
             Enable Push

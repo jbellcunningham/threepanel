@@ -50,6 +50,7 @@ model UserSettings {
   appTitle           String?
   theme              String?
   hiddenSidebarTypes Json?
+  lastOverdueTodoNotificationAt DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

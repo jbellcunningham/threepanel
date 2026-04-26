@@ -393,6 +393,7 @@ export default function ContainerDetailPage() {
   const [selectedChartFieldId, setSelectedChartFieldId] = useState<string>('')
   const [showMenu, setShowMenu] = useState(false)
   const [availableContainerTypes, setAvailableContainerTypes] = useState<string[]>([])
+  const [overdueCount, setOverdueCount] = useState(0)
   const hasFieldStats = stats ? Object.keys(stats.fields).length > 0 : false
 
   // Edit mode state
@@ -560,6 +561,23 @@ async function loadStats() {
     setStatsLoading(false);
   }
 }
+
+  async function loadOverdueCount() {
+    try {
+      const res = await fetch('/api/notifications/overdue-count', {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+      if (!res.ok) {
+        setOverdueCount(0)
+        return
+      }
+      const data = await res.json().catch(() => null)
+      setOverdueCount(typeof data?.overdueCount === 'number' ? data.overdueCount : 0)
+    } catch {
+      setOverdueCount(0)
+    }
+  }
 
 
   /* =========================================================
@@ -842,6 +860,7 @@ async function loadStats() {
     load()
     loadStats()
     loadContainerTypes()
+    loadOverdueCount()
   }, [containerId])
 
   useEffect(() => {
@@ -998,9 +1017,30 @@ async function loadStats() {
               cursor: 'pointer',
               fontSize: 18,
               lineHeight: '18px',
+              position: 'relative',
             }}
           >
             ☰
+            {overdueCount > 0 && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: -6,
+                  right: -6,
+                  minWidth: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  background: '#dc2626',
+                  color: 'white',
+                  fontSize: 11,
+                  lineHeight: '18px',
+                  textAlign: 'center',
+                  padding: '0 4px',
+                }}
+              >
+                {overdueCount > 99 ? '99+' : overdueCount}
+              </span>
+            )}
           </button>
 
           {showMenu && (

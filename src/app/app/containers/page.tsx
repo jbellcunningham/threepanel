@@ -61,6 +61,7 @@ type ContainerItem = {
   title: string
   type: string
   done: boolean
+  dueAt?: string | null
   createdAt: string
   schema?: TrackerSchema | null
   latestEntry?: {
@@ -956,6 +957,12 @@ async function loadContainerTypes() {
                   <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
                     <em>{getContainerSummaryText(it)}</em>
                   </div>
+
+                  {it.type === 'todo' && typeof it.dueAt === 'string' && it.dueAt.trim() && (
+                    <div style={{ marginTop: 4, fontSize: 12, opacity: 0.85 }}>
+                      Due: {formatDate(it.dueAt)}
+                    </div>
+                  )}
 
                   {formatContainerListPreview(it) && (
                     <div style={{ marginTop: 6, fontSize: 12, opacity: 0.85 }}>

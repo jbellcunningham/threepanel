@@ -31,6 +31,7 @@ import { getContainerTypeDisplay } from '@/lib/containerTypeDisplay'
 
 type ContainerSummary = {
   entryCount?: number
+  containerOverdueCount?: number
   openSubtaskCount?: number
   overdueSubtaskCount?: number
   lastEntryAt?: string | null
@@ -139,12 +140,15 @@ function getContainerSummaryText(item: ContainerItem) {
     typeof item.summary?.openSubtaskCount === 'number' ? item.summary.openSubtaskCount : 0
   const overdueSubtaskCount =
     typeof item.summary?.overdueSubtaskCount === 'number' ? item.summary.overdueSubtaskCount : 0
+  const containerOverdueCount =
+    typeof item.summary?.containerOverdueCount === 'number' ? item.summary.containerOverdueCount : 0
   const lastEntryAt =
     typeof item.summary?.lastEntryAt === 'string' ? item.summary.lastEntryAt : null
 
   if (item.type === 'todo') {
-    if (overdueSubtaskCount > 0) {
-      return `${openSubtaskCount} open • ${overdueSubtaskCount} overdue`
+    const totalOverdueCount = overdueSubtaskCount + containerOverdueCount
+    if (totalOverdueCount > 0) {
+      return `${openSubtaskCount} open • ${totalOverdueCount} overdue`
     }
     return `${openSubtaskCount} open subtasks`
   }
@@ -882,7 +886,11 @@ async function loadContainerTypes() {
           </div>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
-            {filteredItems.map((it) => (
+            {filteredItems.map((it) => {
+              const totalOverdueCount =
+                (it.summary?.overdueSubtaskCount ?? 0) + (it.summary?.containerOverdueCount ?? 0)
+
+              return (
               <div
                 key={it.id}
                 role="button"
@@ -909,7 +917,7 @@ async function loadContainerTypes() {
                       textDecoration: it.type === 'todo' && it.done ? 'line-through' : 'none',
                       color:
                         it.type === 'todo' &&
-                        (it.summary?.overdueSubtaskCount ?? 0) > 0 &&
+                        totalOverdueCount > 0 &&
                         !it.done
                           ? '#b91c1c'
                           : 'inherit',
@@ -919,10 +927,10 @@ async function loadContainerTypes() {
                     }}
                   >
                     {it.type === 'todo' &&
-                    (it.summary?.overdueSubtaskCount ?? 0) > 0 &&
+                    totalOverdueCount > 0 &&
                     !it.done ? (
                       <span
-                        title="Contains overdue subtasks"
+                        title="Contains overdue todo items"
                         style={{
                           width: 8,
                           height: 8,
@@ -1041,7 +1049,8 @@ async function loadContainerTypes() {
                   </button>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </section>

@@ -53,6 +53,7 @@ export async function GET(_request: Request, context: RouteContext) {
         title: true,
         type: true,
         done: true,
+        dueAt: true,
         createdAt: true,
         updatedAt: true,
         schema: true,
@@ -76,6 +77,7 @@ export async function GET(_request: Request, context: RouteContext) {
         createdAt: true,
         updatedAt: true,
         data: true,
+        dueAt: true,
       },
     })
 

@@ -66,6 +66,7 @@ model TrackerItem {
   title           String
   notes           String?
   schema          Json?
+  dueAt           DateTime?
   done            Boolean  @default(false)
   doneAt          DateTime?
   statusUpdatedAt DateTime?
@@ -77,6 +78,7 @@ model TrackerItem {
   containerAccess ContainerAccess[]
 
   @@index([userId])
+  @@index([dueAt])
 }
 
 model TrackerEntry {
@@ -84,7 +86,8 @@ model TrackerEntry {
   trackerId String
 
   // Schema-driven tracker: entry values (fieldId -> value) live here
-  data Json?
+  data  Json?
+  dueAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -92,6 +95,7 @@ model TrackerEntry {
   tracker TrackerItem @relation(fields: [trackerId], references: [id], onDelete: Cascade)
 
   @@index([trackerId])
+  @@index([dueAt])
 }
 
 model ContainerAccess {

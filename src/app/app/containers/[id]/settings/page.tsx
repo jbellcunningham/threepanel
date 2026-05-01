@@ -53,6 +53,7 @@ type TrackerItem = {
   id: string
   title: string
   type: string
+  dueAt?: string | null
   createdAt: string
   schema?: TrackerSchema | null
 }
@@ -145,6 +146,7 @@ export default function TrackerSettingsPage() {
   const [item, setItem] = useState<TrackerItem | null>(null)
   const [title, setTitle] = useState('')
   const [fields, setFields] = useState<EditableTrackerField[]>([])
+  const [dueAt, setDueAt] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -202,6 +204,7 @@ export default function TrackerSettingsPage() {
 
     setItem(tracker)
     setTitle(tracker.title)
+    setDueAt(typeof tracker.dueAt === 'string' ? tracker.dueAt.slice(0, 10) : '')
     setFields(toEditableFields(schema.fields ?? []))
     setLoading(false)
   }
@@ -264,6 +267,7 @@ export default function TrackerSettingsPage() {
       credentials: 'include',
       body: JSON.stringify({
         title: title.trim(),
+        dueAt: item?.type === 'todo' ? (dueAt.trim() ? dueAt.trim() : null) : undefined,
         schema,
       }),
     })
@@ -394,6 +398,23 @@ export default function TrackerSettingsPage() {
                   }}
                 />
               </div>
+
+              {item?.type === 'todo' && (
+                <div style={{ display: 'grid', gap: 6 }}>
+                  <label style={{ fontWeight: 600, fontSize: 13 }}>Container Due Date</label>
+                  <input
+                    type="date"
+                    value={dueAt}
+                    onChange={(e) => setDueAt(e.target.value)}
+                    style={{
+                      height: 36,
+                      padding: '0 10px',
+                      borderRadius: 8,
+                      border: '1px solid rgba(0,0,0,0.18)',
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </section>
 

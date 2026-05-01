@@ -44,6 +44,7 @@ type RouteCtx = {
 type UpdateTrackerBody = {
   title?: string
   schema?: TrackerSchema
+  dueAt?: string | null
   done?: boolean
   doneAt?: string | null
   statusUpdatedAt?: string | null
@@ -186,6 +187,7 @@ export async function GET(_req: Request, ctx: RouteCtx) {
       title: true,
       type: true,
       done: true,
+      dueAt: true,
       doneAt: true,
       statusUpdatedAt: true,
       createdAt: true,
@@ -206,6 +208,7 @@ export async function GET(_req: Request, ctx: RouteCtx) {
       createdAt: true,
       updatedAt: true,
       data: true,
+      dueAt: true,
     },
   })
 
@@ -249,6 +252,7 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
   const updateData: {
     title?: string
     schema?: TrackerSchema
+    dueAt?: Date | null
     done?: boolean
     doneAt?: Date | null
     statusUpdatedAt?: Date | null
@@ -272,7 +276,16 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
     updateData.schema = normalizeSchema(body.schema)
   }
 
-  // (g) Validate optional done fields
+  // (g) Validate optional dueAt
+  if (body.dueAt !== undefined) {
+    if (body.dueAt !== null && Number.isNaN(Date.parse(body.dueAt))) {
+      return NextResponse.json({ ok: false, error: 'Invalid dueAt value' }, { status: 400 })
+    }
+
+    updateData.dueAt = body.dueAt ? new Date(body.dueAt) : null
+  }
+
+  // (h) Validate optional done fields
   if (body.done !== undefined) {
     if (typeof body.done !== 'boolean') {
       return NextResponse.json({ ok: false, error: 'Invalid done value' }, { status: 400 })
@@ -309,7 +322,7 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
     return NextResponse.json({ ok: false, error: 'No valid fields to update' }, { status: 400 })
   }
 
-  // (h) Update tracker
+  // (i) Update tracker
   const item = await prisma.trackerItem.update({
     where: { id: existing.id },
     data: updateData,
@@ -318,6 +331,7 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
       title: true,
       type: true,
       done: true,
+      dueAt: true,
       doneAt: true,
       statusUpdatedAt: true,
       createdAt: true,

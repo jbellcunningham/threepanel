@@ -31,22 +31,58 @@ function isDone(value: unknown): boolean {
   return value === true
 }
 
-function isOverdueOpenTodoData(data: unknown, now: Date): boolean {
-  if (!data || typeof data !== 'object') {
+function getEntryDueDate(entry: { dueAt: Date | null; data: unknown }): Date | null {
+  if (entry.dueAt) {
+    return entry.dueAt
+  }
+
+  if (!entry.data || typeof entry.data !== 'object') {
+    return null
+  }
+
+  const obj = entry.data as Record<string, unknown>
+  return parseDueDate(obj.due_at ?? obj.dueAt)
+}
+
+function isOverdueOpenTodoData(entry: { dueAt: Date | null; data: unknown }, now: Date): boolean {
+  if (!entry.data || typeof entry.data !== 'object') {
     return false
   }
 
-  const obj = data as Record<string, unknown>
+  const obj = entry.data as Record<string, unknown>
   if (isDone(obj.done)) {
     return false
   }
 
-  const dueDate = parseDueDate(obj.due_at ?? obj.dueAt)
+  const dueDate = getEntryDueDate(entry)
   if (!dueDate) {
     return false
   }
 
   return dueDate.getTime() < now.getTime()
+}
+
+function getOverdueDueTime(entry: { dueAt: Date | null; data: unknown }, now: Date): number | null {
+  if (!entry.data || typeof entry.data !== 'object') {
+    return null
+  }
+
+  const obj = entry.data as Record<string, unknown>
+  if (isDone(obj.done)) {
+    return null
+  }
+
+  const dueDate = getEntryDueDate(entry)
+  if (!dueDate) {
+    return null
+  }
+
+  const dueTime = dueDate.getTime()
+  if (dueTime >= now.getTime()) {
+    return null
+  }
+
+  return dueTime
 }
 
 export async function getOverdueTodoCountsByUser(now = new Date()): Promise<OverdueCountsByUser> {
@@ -56,8 +92,11 @@ export async function getOverdueTodoCountsByUser(now = new Date()): Promise<Over
     },
     select: {
       userId: true,
+      done: true,
+      dueAt: true,
       entries: {
         select: {
+          dueAt: true,
           data: true,
         },
       },
@@ -67,9 +106,12 @@ export async function getOverdueTodoCountsByUser(now = new Date()): Promise<Over
   const counts: OverdueCountsByUser = {}
 
   for (const container of todoContainers) {
+    const containerOverdueCount =
+      !container.done && container.dueAt && container.dueAt.getTime() < now.getTime() ? 1 : 0
+
     const overdueCount = container.entries.reduce((acc, entry) => {
-      return acc + (isOverdueOpenTodoData(entry.data, now) ? 1 : 0)
-    }, 0)
+      return acc + (isOverdueOpenTodoData(entry, now) ? 1 : 0)
+    }, containerOverdueCount)
 
     if (overdueCount > 0) {
       counts[container.userId] = (counts[container.userId] ?? 0) + overdueCount
@@ -94,8 +136,11 @@ export async function getOverdueTodoNotificationTargetsByUser(
     select: {
       id: true,
       userId: true,
+      done: true,
+      dueAt: true,
       entries: {
         select: {
+          dueAt: true,
           data: true,
         },
       },
@@ -106,23 +151,22 @@ export async function getOverdueTodoNotificationTargetsByUser(
   const nearestDueByUser: Record<string, number> = {}
 
   for (const container of todoContainers) {
-    let containerOverdueCount = 0
+    let containerOverdueCount =
+      !container.done && container.dueAt && container.dueAt.getTime() < now.getTime() ? 1 : 0
     let nearestOverdueDueTime: number | null = null
 
-    for (const entry of container.entries) {
-      const data = entry.data as Record<string, unknown> | null
-      if (!data || isDone(data.done)) {
-        continue
-      }
+    if (containerOverdueCount > 0 && container.dueAt) {
+      nearestOverdueDueTime = container.dueAt.getTime()
+    }
 
-      const dueDate = parseDueDate(data.due_at ?? data.dueAt)
-      if (!dueDate || dueDate.getTime() >= now.getTime()) {
+    for (const entry of container.entries) {
+      const dueTime = getOverdueDueTime(entry, now)
+      if (dueTime === null) {
         continue
       }
 
       containerOverdueCount += 1
 
-      const dueTime = dueDate.getTime()
       if (nearestOverdueDueTime === null || dueTime < nearestOverdueDueTime) {
         nearestOverdueDueTime = dueTime
       }

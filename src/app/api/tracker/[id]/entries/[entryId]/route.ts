@@ -61,6 +61,25 @@ function isFiniteNumber(v: unknown): v is number {
   return typeof v === 'number' && Number.isFinite(v)
 }
 
+function parseEntryDueAt(value: unknown): Date | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const parsed = new Date(`${trimmed}T23:59:59.999Z`)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  const parsed = new Date(trimmed)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
 /**
  * Validate `data` object against the tracker's schema.
  * Returns `null` when valid, otherwise an error string.
@@ -163,7 +182,10 @@ export async function PATCH(
   }
 
   // prepare update payload
-  const updatePayload: any = { data }
+  const updatePayload: any = {
+    data,
+    dueAt: parseEntryDueAt(data.due_at ?? data.dueAt),
+  }
 
   // allow updating legacy title/content if provided (optional)
   if (Object.prototype.hasOwnProperty.call(body, 'title')) {
@@ -177,7 +199,7 @@ export async function PATCH(
   const updated = await prisma.trackerEntry.update({
     where: { id: entryId },
     data: updatePayload,
-    select: { id: true, createdAt: true, updatedAt: true, data: true },
+    select: { id: true, createdAt: true, updatedAt: true, data: true, dueAt: true },
   })
 
   return NextResponse.json({ ok: true, entry: updated })

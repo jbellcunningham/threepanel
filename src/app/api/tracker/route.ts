@@ -40,6 +40,7 @@ type TrackerListItem = {
   title: string
   type: string
   done: boolean
+  dueAt: string | null
   createdAt: string
   schema: TrackerSchema | null
   latestEntry: {
@@ -61,6 +62,7 @@ type EntryDataRecord = Record<string, unknown>
 type ListEntry = {
   id: string
   createdAt: Date
+  dueAt?: Date | null
   data: unknown
 }
 
@@ -404,7 +406,7 @@ function countOverdueTodoEntries(entries: ListEntry[]) {
       return
     }
 
-    const dueDate = parseTodoDueDate(data.due_at ?? data.dueAt)
+    const dueDate = entry.dueAt ?? parseTodoDueDate(data.due_at ?? data.dueAt)
     if (!dueDate) {
       return
     }
@@ -425,12 +427,16 @@ function getLastEntryAt(entries: ListEntry[]) {
   return entries[0].createdAt.toISOString()
 }
 
-function buildSummary(type: string, entries: ListEntry[]) {
+function buildSummary(type: string, done: boolean, dueAt: Date | null, entries: ListEntry[]) {
   const lastEntryAt = getLastEntryAt(entries)
+  const now = new Date()
+  const isContainerOverdue =
+    type === 'todo' && !done && Boolean(dueAt && dueAt.getTime() < now.getTime())
 
   if (type === 'todo') {
     return {
       entryCount: entries.length,
+      containerOverdueCount: isContainerOverdue ? 1 : 0,
       openSubtaskCount: countOpenTodoEntries(entries),
       overdueSubtaskCount: countOverdueTodoEntries(entries),
       lastEntryAt
@@ -482,6 +488,7 @@ export async function GET() {
       title: true,
       type: true,
       done: true,
+      dueAt: true,
       createdAt: true,
       schema: true,
       entries: {
@@ -491,6 +498,7 @@ export async function GET() {
         select: {
           id: true,
           createdAt: true,
+          dueAt: true,
           data: true
         }
       }
@@ -506,6 +514,7 @@ export async function GET() {
       title: it.title,
       type: it.type,
       done: it.done,
+      dueAt: it.dueAt ? it.dueAt.toISOString() : null,
       createdAt: it.createdAt.toISOString(),
       schema: normalizedSchema,
       latestEntry:
@@ -517,7 +526,7 @@ export async function GET() {
             }
           : null,
       listPreview: buildListPreview(it.type, normalizedSchema, it.entries),
-      summary: buildSummary(it.type, it.entries)
+      summary: buildSummary(it.type, it.done, it.dueAt, it.entries)
     }
   })
 

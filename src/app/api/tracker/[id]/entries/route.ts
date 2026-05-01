@@ -41,6 +41,25 @@ function isFiniteNumber(v: unknown): v is number {
   return typeof v === 'number' && Number.isFinite(v)
 }
 
+function parseEntryDueAt(value: unknown): Date | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const parsed = new Date(`${trimmed}T23:59:59.999Z`)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  const parsed = new Date(trimmed)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
 function validateAgainstSchema(schema: TrackerSchema | null, data: Record<string, unknown>) {
   if (!schema || !Array.isArray(schema.fields)) return null // no validation errors
 
@@ -107,12 +126,14 @@ export async function POST(
   }
 
   // (f) Create entry (store only JSON data)
+  const dueAt = parseEntryDueAt(data.due_at ?? data.dueAt)
   const entry = await prisma.trackerEntry.create({
     data: {
       trackerId: tracker.id,
       data,
+      dueAt,
     },
-    select: { id: true, createdAt: true, updatedAt: true, data: true },
+    select: { id: true, createdAt: true, updatedAt: true, data: true, dueAt: true },
   })
 
   return NextResponse.json({ ok: true, entry })

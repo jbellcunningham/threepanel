@@ -2127,18 +2127,18 @@ async function loadStats() {
 
                         <div
                           style={{
-                            display: 'grid',
+                            display: 'flex',
                             gap: 8,
                             flexShrink: 0,
-                            justifyItems: 'end',
+                            alignItems: 'flex-start',
                           }}
                         >
                           {isTodoLikeContainer && (
                             <div
                               style={{
-                                display: 'grid',
+                                display: 'flex',
                                 gap: 6,
-                                justifyItems: 'end',
+                                alignItems: 'center',
                               }}
                             >
                               <button
@@ -2162,13 +2162,13 @@ async function loadStats() {
                                 <summary
                                   style={{
                                     listStyle: 'none',
-                                    height: 28,
+                                    height: 32,
                                     padding: '0 10px',
                                     borderRadius: 8,
                                     border: '1px solid rgba(0,0,0,0.12)',
                                     background: 'transparent',
                                     cursor: 'pointer',
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 600,
                                     display: 'inline-flex',
                                     alignItems: 'center',

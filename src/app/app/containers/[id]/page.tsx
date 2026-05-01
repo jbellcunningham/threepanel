@@ -2096,8 +2096,10 @@ async function loadStats() {
                           {isTodoLikeContainer && (
                             <div
                               style={{
-                                display: 'grid',
-                                gap: 2,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                flexWrap: 'wrap',
                               }}
                             >
                               <span
@@ -2121,6 +2123,106 @@ async function loadStats() {
                               >
                                 {dueMeta.statusLabel.toUpperCase()}
                               </span>
+                              {!entryDone && (
+                                <details style={{ position: 'relative' }}>
+                                  <summary
+                                    style={{
+                                      listStyle: 'none',
+                                      height: 24,
+                                      padding: '0 8px',
+                                      borderRadius: 999,
+                                      border: '1px solid rgba(0,0,0,0.12)',
+                                      background: 'transparent',
+                                      cursor: 'pointer',
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                    }}
+                                  >
+                                    Push <span aria-hidden>▾</span>
+                                  </summary>
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      top: 28,
+                                      left: 0,
+                                      zIndex: 5,
+                                      width: 140,
+                                      borderRadius: 10,
+                                      border: '1px solid rgba(0,0,0,0.12)',
+                                      background: 'white',
+                                      boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+                                      padding: 6,
+                                      display: 'grid',
+                                      gap: 4,
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => pushTodoEntryDueDate(entry, '1_day')}
+                                      style={{
+                                        textAlign: 'left',
+                                        borderRadius: 8,
+                                        border: '1px solid rgba(0,0,0,0.08)',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                        padding: '8px 10px',
+                                        fontSize: 12,
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      1 day (default)
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => pushTodoEntryDueDate(entry, '1_week')}
+                                      style={{
+                                        textAlign: 'left',
+                                        borderRadius: 8,
+                                        border: '1px solid rgba(0,0,0,0.08)',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                        padding: '8px 10px',
+                                        fontSize: 12,
+                                      }}
+                                    >
+                                      1 week
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => pushTodoEntryDueDate(entry, '1_month')}
+                                      style={{
+                                        textAlign: 'left',
+                                        borderRadius: 8,
+                                        border: '1px solid rgba(0,0,0,0.08)',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                        padding: '8px 10px',
+                                        fontSize: 12,
+                                      }}
+                                    >
+                                      1 month
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => pushTodoEntryDueDate(entry, 'custom')}
+                                      style={{
+                                        textAlign: 'left',
+                                        borderRadius: 8,
+                                        border: '1px solid rgba(0,0,0,0.08)',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                        padding: '8px 10px',
+                                        fontSize: 12,
+                                      }}
+                                    >
+                                      custom
+                                    </button>
+                                  </div>
+                                </details>
+                              )}
                             </div>
                           )}
                         </div>
@@ -2158,104 +2260,6 @@ async function loadStats() {
                               >
                                 {entryDone ? '↩️' : '✔️'}
                               </button>
-                              <details style={{ position: 'relative' }}>
-                                <summary
-                                  style={{
-                                    listStyle: 'none',
-                                    height: 32,
-                                    padding: '0 10px',
-                                    borderRadius: 8,
-                                    border: '1px solid rgba(0,0,0,0.12)',
-                                    background: 'transparent',
-                                    cursor: 'pointer',
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                  }}
-                                >
-                                  Push <span aria-hidden>▾</span>
-                                </summary>
-                                <div
-                                  style={{
-                                    position: 'absolute',
-                                    top: 32,
-                                    right: 0,
-                                    zIndex: 5,
-                                    width: 140,
-                                    borderRadius: 10,
-                                    border: '1px solid rgba(0,0,0,0.12)',
-                                    background: 'white',
-                                    boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
-                                    padding: 6,
-                                    display: 'grid',
-                                    gap: 4,
-                                  }}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => pushTodoEntryDueDate(entry, '1_day')}
-                                    style={{
-                                      textAlign: 'left',
-                                      borderRadius: 8,
-                                      border: '1px solid rgba(0,0,0,0.08)',
-                                      background: 'transparent',
-                                      cursor: 'pointer',
-                                      padding: '8px 10px',
-                                      fontSize: 12,
-                                      fontWeight: 600,
-                                    }}
-                                  >
-                                    1 day (default)
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => pushTodoEntryDueDate(entry, '1_week')}
-                                    style={{
-                                      textAlign: 'left',
-                                      borderRadius: 8,
-                                      border: '1px solid rgba(0,0,0,0.08)',
-                                      background: 'transparent',
-                                      cursor: 'pointer',
-                                      padding: '8px 10px',
-                                      fontSize: 12,
-                                    }}
-                                  >
-                                    1 week
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => pushTodoEntryDueDate(entry, '1_month')}
-                                    style={{
-                                      textAlign: 'left',
-                                      borderRadius: 8,
-                                      border: '1px solid rgba(0,0,0,0.08)',
-                                      background: 'transparent',
-                                      cursor: 'pointer',
-                                      padding: '8px 10px',
-                                      fontSize: 12,
-                                    }}
-                                  >
-                                    1 month
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => pushTodoEntryDueDate(entry, 'custom')}
-                                    style={{
-                                      textAlign: 'left',
-                                      borderRadius: 8,
-                                      border: '1px solid rgba(0,0,0,0.08)',
-                                      background: 'transparent',
-                                      cursor: 'pointer',
-                                      padding: '8px 10px',
-                                      fontSize: 12,
-                                    }}
-                                  >
-                                    custom
-                                  </button>
-                                </div>
-                              </details>
                             </div>
                           )}
 

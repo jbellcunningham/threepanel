@@ -946,10 +946,37 @@ async function loadContainerTypes() {
 
                   {(() => {
                     const display = getContainerTypeDisplay(it.type)
+                    const dueRaw =
+                      it.type === 'todo' && typeof it.dueAt === 'string'
+                        ? it.dueAt.trim()
+                        : ''
+                    const showDue = Boolean(dueRaw)
 
                     return (
-                      <div style={{ marginTop: 4, fontSize: 12, opacity: 0.7 }}>
-                        {display.icon} {display.label}
+                      <div
+                        style={{
+                          marginTop: 4,
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'baseline',
+                          gap: 10,
+                        }}
+                      >
+                        <div style={{ fontSize: 12, opacity: 0.7 }}>
+                          {display.icon} {display.label}
+                        </div>
+                        {showDue ? (
+                          <span
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 700,
+                              opacity: 0.85,
+                              flexShrink: 0,
+                            }}
+                          >
+                            Due {formatDate(dueRaw)}
+                          </span>
+                        ) : null}
                       </div>
                     )
                   })()}
@@ -957,12 +984,6 @@ async function loadContainerTypes() {
                   <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
                     <em>{getContainerSummaryText(it)}</em>
                   </div>
-
-                  {it.type === 'todo' && typeof it.dueAt === 'string' && it.dueAt.trim() && (
-                    <div style={{ marginTop: 4, fontSize: 12, opacity: 0.85 }}>
-                      Due: {formatDate(it.dueAt)}
-                    </div>
-                  )}
 
                   {formatContainerListPreview(it) && (
                     <div style={{ marginTop: 6, fontSize: 12, opacity: 0.85 }}>

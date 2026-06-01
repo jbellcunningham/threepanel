@@ -228,6 +228,7 @@ export default function ContainersPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [overdueCount, setOverdueCount] = useState(0)
+  const [hideCompletedTodos, setHideCompletedTodos] = useState(true)
 
   /* -----------------------------
      Derived values
@@ -235,13 +236,26 @@ export default function ContainersPage() {
 
   const typeFilter = (searchParams.get('type') || '').trim().toLowerCase()
 
+  const showCompletedTodoFilter = !typeFilter || typeFilter === 'todo'
+
+  const completedTodoCount = useMemo(
+    () => items.filter((item) => item.type === 'todo' && item.done).length,
+    [items]
+  )
+
   const filteredItems = useMemo(() => {
-    if (!typeFilter) {
-      return items
+    let result = items
+
+    if (typeFilter) {
+      result = result.filter((item) => item.type.toLowerCase() === typeFilter)
     }
 
-    return items.filter((item) => item.type.toLowerCase() === typeFilter)
-  }, [items, typeFilter])
+    if (hideCompletedTodos) {
+      result = result.filter((item) => !(item.type === 'todo' && item.done))
+    }
+
+    return result
+  }, [items, typeFilter, hideCompletedTodos])
 
   const pageTitle = useMemo(() => getContainerListTitle(typeFilter), [typeFilter])
   const pageDescription = useMemo(
@@ -876,12 +890,37 @@ async function loadContainerTypes() {
 
       {error && <div style={{ color: 'crimson', marginTop: 10 }}>{error}</div>}
 
+      {showCompletedTodoFilter && !loading && completedTodoCount > 0 && (
+        <label
+          style={{
+            marginTop: 12,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            fontSize: 13,
+            cursor: 'pointer',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={hideCompletedTodos}
+            onChange={(e) => setHideCompletedTodos(e.target.checked)}
+          />
+          Hide completed todo lists
+          <span style={{ opacity: 0.65 }}>
+            ({completedTodoCount} completed)
+          </span>
+        </label>
+      )}
+
       <section style={{ marginTop: 16 }}>
         {loading ? (
           <div>Loading…</div>
         ) : filteredItems.length === 0 ? (
           <div style={{ opacity: 0.75 }}>
-            {typeFilter
+            {hideCompletedTodos && completedTodoCount > 0
+              ? 'No open todo lists to show. Uncheck “Hide completed todo lists” to see completed ones.'
+              : typeFilter
               ? `No containers found for type: ${typeFilter}.`
               : 'No containers yet.'}
           </div>

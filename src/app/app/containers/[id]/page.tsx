@@ -1325,6 +1325,25 @@ async function loadStats() {
                 type="button"
                 onClick={() => {
                   setShowMenu(false)
+                  router.push('/app/todos/today')
+                }}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                Today agenda
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
                   router.push(`/app/reporting/${containerId}`)
                 }}
                 style={{

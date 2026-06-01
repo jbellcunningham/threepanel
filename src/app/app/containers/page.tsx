@@ -561,6 +561,46 @@ async function loadContainerTypes() {
         <div style={{ minWidth: 0 }}>
           <h1 style={{ marginTop: 0, marginBottom: 6 }}>{pageTitle}</h1>
           <p style={{ opacity: 0.75, marginTop: 0, marginBottom: 0 }}>{pageDescription}</p>
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              flexWrap: 'wrap',
+              marginTop: 10,
+            }}
+          >
+            <button
+              type="button"
+              style={{
+                height: 30,
+                padding: '0 12px',
+                borderRadius: 999,
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: 'rgba(0,0,0,0.08)',
+                fontWeight: 700,
+                fontSize: 12,
+                cursor: 'default',
+              }}
+            >
+              All containers
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/app/todos/today')}
+              style={{
+                height: 30,
+                padding: '0 12px',
+                borderRadius: 999,
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: 'transparent',
+                fontWeight: 500,
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              Today agenda
+            </button>
+          </div>
         </div>
 
         <div
@@ -573,6 +613,24 @@ async function loadContainerTypes() {
             marginLeft: 'auto',
           }}
         >
+          <button
+            type="button"
+            title="Today — all open items due or overdue"
+            onClick={() => router.push('/app/todos/today')}
+            style={{
+              height: 36,
+              padding: '0 12px',
+              borderRadius: 8,
+              border: '1px solid rgba(0,0,0,0.12)',
+              background: 'transparent',
+              cursor: 'pointer',
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            Today
+          </button>
+
           <button
             type="button"
             title={showCreate ? 'Hide' : 'Create Container'}
@@ -711,6 +769,25 @@ async function loadContainerTypes() {
                   margin: '4px 0',
                 }}
               />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false)
+                  router.push('/app/todos/today')
+                }}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                Today agenda
+              </button>
 
               <button
                 type="button"

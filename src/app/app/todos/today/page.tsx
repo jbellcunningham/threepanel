@@ -241,6 +241,47 @@ export default function TodoTodayPage() {
           <p style={{ margin: 0, opacity: 0.75, fontSize: 14 }}>
             All open todo containers and sub-items due today or overdue.
           </p>
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              flexWrap: 'wrap',
+              marginTop: 10,
+            }}
+          >
+            <Link
+              href="/app/containers"
+              style={{
+                height: 30,
+                padding: '0 12px',
+                borderRadius: 999,
+                border: '1px solid rgba(0,0,0,0.12)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                textDecoration: 'none',
+                fontSize: 12,
+                fontWeight: 500,
+                color: 'inherit',
+              }}
+            >
+              All containers
+            </Link>
+            <span
+              style={{
+                height: 30,
+                padding: '0 12px',
+                borderRadius: 999,
+                border: '1px solid rgba(0,0,0,0.12)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                fontSize: 12,
+                fontWeight: 700,
+                background: 'rgba(0,0,0,0.08)',
+              }}
+            >
+              Today agenda
+            </span>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link

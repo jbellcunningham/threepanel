@@ -38,6 +38,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getContainerTypeDisplay } from '@/lib/containerTypeDisplay'
 import TrackerLineChart from '@/components/charts/TrackerLineChart'
+import { getEntryDueMeta } from '@/lib/todoDue'
 
 /* =========================================================
    2) Types
@@ -68,6 +69,8 @@ type TrackerItem = {
   done?: boolean
   doneAt?: string | null
   statusUpdatedAt?: string | null
+  dueAt?: string | null
+  recurrenceRule?: string | null
   schema?: TrackerSchema | null
 }
 
@@ -75,6 +78,8 @@ type TrackerEntry = {
   id: string
   createdAt: string
   updatedAt?: string
+  dueAt?: string | null
+  recurrenceRule?: string | null
   data?: Record<string, unknown> | null
 }
 
@@ -407,56 +412,18 @@ function formatOverdueAge(from: Date, to = new Date()) {
 }
 
 function getTodoDueMeta(entry: TrackerEntry, now = new Date()) {
-  const dueDate = parseTodoDueDate(entry.data?.due_at ?? entry.data?.dueAt)
-  const done = Boolean(entry.data?.done)
+  const dueAt =
+    typeof entry.dueAt === 'string' && entry.dueAt
+      ? new Date(entry.dueAt)
+      : null
 
-  if (!dueDate) {
-    return {
-      hasDueDate: false,
-      done,
-      overdue: false,
-      dueDate: null as Date | null,
-      statusLabel: done ? 'Done' : 'Open',
-      detail: done ? 'Completed (no due date)' : 'No due date',
-      sortRank: done ? 4 : 3,
-    }
-  }
-
-  if (done) {
-    return {
-      hasDueDate: true,
-      done: true,
-      overdue: false,
-      dueDate,
-      statusLabel: 'Done',
-      detail: `Due ${formatDate(dueDate.toISOString())}`,
-      sortRank: 4,
-    }
-  }
-
-  if (dueDate.getTime() < now.getTime()) {
-    return {
-      hasDueDate: true,
-      done: false,
-      overdue: true,
-      dueDate,
-      statusLabel: 'Overdue',
-      detail: formatOverdueAge(dueDate, now),
-      sortRank: 1,
-    }
-  }
-
-  const isToday = dueDate.toDateString() === now.toDateString()
-
-  return {
-    hasDueDate: true,
-    done: false,
-    overdue: false,
-    dueDate,
-    statusLabel: isToday ? 'Due today' : 'Open',
-    detail: `Due ${formatDate(dueDate.toISOString())}`,
-    sortRank: isToday ? 2 : 3,
-  }
+  return getEntryDueMeta(
+    {
+      dueAt: dueAt && !Number.isNaN(dueAt.getTime()) ? dueAt : null,
+      data: entry.data ?? null,
+    },
+    now
+  )
 }
 
 /* =========================================================
@@ -492,6 +459,7 @@ export default function ContainerDetailPage() {
   const [todoQuickFilter, setTodoQuickFilter] = useState<TodoQuickFilter>('all')
   const [todoSortMode, setTodoSortMode] = useState<TodoSortMode>('priority')
   const [expandedMetaEntryIds, setExpandedMetaEntryIds] = useState<Record<string, boolean>>({})
+  const [entryRecurrenceRule, setEntryRecurrenceRule] = useState('')
   const hasFieldStats = stats ? Object.keys(stats.fields).length > 0 : false
 
   // Edit mode state
@@ -801,6 +769,7 @@ async function loadStats() {
       credentials: 'include',
       body: JSON.stringify({
         data: formData,
+        recurrenceRule: entryRecurrenceRule || null,
       }),
     })
 
@@ -838,6 +807,7 @@ async function loadStats() {
     setError(null)
     setEditingEntryId(entry.id)
     setFormData(buildFormDataFromEntry(schema, entry))
+    setEntryRecurrenceRule(entry.recurrenceRule ?? '')
     setShowEntryForm(true)
   }
 
@@ -848,6 +818,7 @@ async function loadStats() {
   function cancelEdit() {
     setEditingEntryId(null)
     setFormData(buildEmptyFormData(schema))
+    setEntryRecurrenceRule('')
     setError(null)
 
     if (item?.type?.toLowerCase?.() === 'todo') {
@@ -870,6 +841,7 @@ async function loadStats() {
       credentials: 'include',
       body: JSON.stringify({
         data: formData,
+        recurrenceRule: entryRecurrenceRule || null,
       }),
     })
 
@@ -1472,6 +1444,7 @@ async function loadStats() {
                 if (item?.type?.toLowerCase?.() === 'todo') {
                   setEditingEntryId(null)
                   setFormData(buildEmptyFormData(schema))
+                  setEntryRecurrenceRule('')
                 }
               }}
               title={showEntryForm ? 'Hide new entry form' : 'Show new entry form'}
@@ -1658,6 +1631,28 @@ async function loadStats() {
                     </div>
                   )
                 })}
+
+                {isTodoLikeContainer && (
+                  <div style={{ display: 'grid', gap: 6 }}>
+                    <label style={{ fontWeight: 600, fontSize: 13 }}>Repeat</label>
+                    <select
+                      value={entryRecurrenceRule}
+                      onChange={(e) => setEntryRecurrenceRule(e.target.value)}
+                      style={{
+                        height: 36,
+                        padding: '0 10px',
+                        borderRadius: 8,
+                        border: '1px solid rgba(0,0,0,0.18)',
+                        maxWidth: 220,
+                      }}
+                    >
+                      <option value="">None</option>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', gap: 10 }}>
                   {isEditing ? (

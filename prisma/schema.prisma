@@ -67,6 +67,7 @@ model TrackerItem {
   notes           String?
   schema          Json?
   dueAt           DateTime?
+  recurrenceRule  String?
   done            Boolean  @default(false)
   doneAt          DateTime?
   statusUpdatedAt DateTime?
@@ -88,6 +89,7 @@ model TrackerEntry {
   // Schema-driven tracker: entry values (fieldId -> value) live here
   data  Json?
   dueAt DateTime?
+  recurrenceRule String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

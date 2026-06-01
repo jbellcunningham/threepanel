@@ -18,6 +18,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
+import { isEntryDone } from '@/lib/todoDue'
+import { nextDueAfterComplete, parseRecurrenceRule } from '@/lib/todoRecurrence'
 
 /* ============================
    2) Types
@@ -41,6 +43,7 @@ type TrackerSchema = {
 type PatchEntryBody = {
   // data contains the schema-driven values (fieldId -> value)
   data?: Record<string, unknown>
+  recurrenceRule?: string | null
   // legacy optional fields (kept for compatibility)
   title?: string | null
   content?: string | null
@@ -150,7 +153,13 @@ export async function PATCH(
   // load entry + parent tracker (to verify ownership and to read schema)
   const existing = await prisma.trackerEntry.findUnique({
     where: { id: entryId },
-    include: { tracker: { select: { id: true, userId: true, schema: true } } },
+    select: {
+      id: true,
+      dueAt: true,
+      recurrenceRule: true,
+      data: true,
+      tracker: { select: { id: true, userId: true, schema: true } },
+    },
   })
 
   if (!existing) {
@@ -182,9 +191,47 @@ export async function PATCH(
   }
 
   // prepare update payload
-  const updatePayload: any = {
+  const updatePayload: {
+    data: Record<string, unknown>
+    dueAt: Date | null
+    recurrenceRule?: string | null
+    title?: string | null
+    content?: string | null
+  } = {
     data,
     dueAt: parseEntryDueAt(data.due_at ?? data.dueAt),
+  }
+
+  if (body.recurrenceRule !== undefined) {
+    if (body.recurrenceRule === null || body.recurrenceRule === '') {
+      updatePayload.recurrenceRule = null
+    } else {
+      const rule = parseRecurrenceRule(body.recurrenceRule)
+      if (!rule) {
+        return NextResponse.json(
+          { ok: false, error: 'Invalid recurrenceRule (daily, weekly, monthly)' },
+          { status: 400 }
+        )
+      }
+      updatePayload.recurrenceRule = rule
+    }
+  }
+
+  const markingDone = data.done === true && !isEntryDone(existing.data)
+  if (markingDone) {
+    const rule = parseRecurrenceRule(
+      updatePayload.recurrenceRule ?? existing.recurrenceRule
+    )
+
+    if (rule) {
+      const baseDue = updatePayload.dueAt ?? existing.dueAt
+      updatePayload.dueAt = nextDueAfterComplete(baseDue, rule)
+      updatePayload.data = {
+        ...data,
+        done: false,
+        doneAt: null,
+      }
+    }
   }
 
   // allow updating legacy title/content if provided (optional)
@@ -199,7 +246,14 @@ export async function PATCH(
   const updated = await prisma.trackerEntry.update({
     where: { id: entryId },
     data: updatePayload,
-    select: { id: true, createdAt: true, updatedAt: true, data: true, dueAt: true },
+    select: {
+      id: true,
+      createdAt: true,
+      updatedAt: true,
+      data: true,
+      dueAt: true,
+      recurrenceRule: true,
+    },
   })
 
   return NextResponse.json({ ok: true, entry: updated })

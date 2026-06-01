@@ -13,6 +13,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
+import { nextDueAfterComplete, parseRecurrenceRule } from '@/lib/todoRecurrence'
 
 /* =========================================================
    2) Types: response/request shapes used by this route
@@ -45,6 +46,7 @@ type UpdateTrackerBody = {
   title?: string
   schema?: TrackerSchema
   dueAt?: string | null
+  recurrenceRule?: string | null
   done?: boolean
   doneAt?: string | null
   statusUpdatedAt?: string | null
@@ -188,6 +190,7 @@ export async function GET(_req: Request, ctx: RouteCtx) {
       type: true,
       done: true,
       dueAt: true,
+      recurrenceRule: true,
       doneAt: true,
       statusUpdatedAt: true,
       createdAt: true,
@@ -209,6 +212,7 @@ export async function GET(_req: Request, ctx: RouteCtx) {
       updatedAt: true,
       data: true,
       dueAt: true,
+      recurrenceRule: true,
     },
   })
 
@@ -234,7 +238,12 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
   // (c) Ensure tracker exists and belongs to user
   const existing = await prisma.trackerItem.findFirst({
     where: { id, userId: user.id },
-    select: { id: true },
+    select: {
+      id: true,
+      done: true,
+      dueAt: true,
+      recurrenceRule: true,
+    },
   })
 
   if (!existing) {
@@ -253,6 +262,7 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
     title?: string
     schema?: TrackerSchema
     dueAt?: Date | null
+    recurrenceRule?: string | null
     done?: boolean
     doneAt?: Date | null
     statusUpdatedAt?: Date | null
@@ -283,6 +293,21 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
     }
 
     updateData.dueAt = body.dueAt ? new Date(body.dueAt) : null
+  }
+
+  if (body.recurrenceRule !== undefined) {
+    if (body.recurrenceRule === null || body.recurrenceRule === '') {
+      updateData.recurrenceRule = null
+    } else {
+      const rule = parseRecurrenceRule(body.recurrenceRule)
+      if (!rule) {
+        return NextResponse.json(
+          { ok: false, error: 'Invalid recurrenceRule (daily, weekly, monthly)' },
+          { status: 400 }
+        )
+      }
+      updateData.recurrenceRule = rule
+    }
   }
 
   // (h) Validate optional done fields
@@ -322,6 +347,19 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
     return NextResponse.json({ ok: false, error: 'No valid fields to update' }, { status: 400 })
   }
 
+  if (body.done === true && !existing.done) {
+    const rule = parseRecurrenceRule(
+      updateData.recurrenceRule ?? existing.recurrenceRule
+    )
+
+    if (rule) {
+      const baseDue = updateData.dueAt ?? existing.dueAt
+      updateData.done = false
+      updateData.doneAt = null
+      updateData.dueAt = nextDueAfterComplete(baseDue, rule)
+    }
+  }
+
   // (i) Update tracker
   const item = await prisma.trackerItem.update({
     where: { id: existing.id },
@@ -332,6 +370,7 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
       type: true,
       done: true,
       dueAt: true,
+      recurrenceRule: true,
       doneAt: true,
       statusUpdatedAt: true,
       createdAt: true,

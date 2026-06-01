@@ -10,6 +10,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
+import { parseRecurrenceRule } from '@/lib/todoRecurrence'
 
 /* 2) Types: schema + request shapes used in this route */
 type TrackerFieldType = 'text' | 'number' | 'boolean'
@@ -30,6 +31,7 @@ type TrackerSchema = {
 
 type CreateEntryBody = {
   data?: Record<string, unknown>
+  recurrenceRule?: string | null
 }
 
 /* 3) Helpers: small pure functions for validation/coercion */
@@ -125,6 +127,18 @@ export async function POST(
     return NextResponse.json({ ok: false, error: validationError }, { status: 400 })
   }
 
+  let recurrenceRule: string | null = null
+  if (body.recurrenceRule !== undefined && body.recurrenceRule !== null && body.recurrenceRule !== '') {
+    const rule = parseRecurrenceRule(body.recurrenceRule)
+    if (!rule) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid recurrenceRule (daily, weekly, monthly)' },
+        { status: 400 }
+      )
+    }
+    recurrenceRule = rule
+  }
+
   // (f) Create entry (store only JSON data)
   const dueAt = parseEntryDueAt(data.due_at ?? data.dueAt)
   const entry = await prisma.trackerEntry.create({
@@ -132,8 +146,16 @@ export async function POST(
       trackerId: tracker.id,
       data,
       dueAt,
+      recurrenceRule,
     },
-    select: { id: true, createdAt: true, updatedAt: true, data: true, dueAt: true },
+    select: {
+      id: true,
+      createdAt: true,
+      updatedAt: true,
+      data: true,
+      dueAt: true,
+      recurrenceRule: true,
+    },
   })
 
   return NextResponse.json({ ok: true, entry })

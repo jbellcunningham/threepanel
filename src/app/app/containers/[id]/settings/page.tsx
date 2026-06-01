@@ -54,6 +54,7 @@ type TrackerItem = {
   title: string
   type: string
   dueAt?: string | null
+  recurrenceRule?: string | null
   createdAt: string
   schema?: TrackerSchema | null
 }
@@ -147,6 +148,7 @@ export default function TrackerSettingsPage() {
   const [title, setTitle] = useState('')
   const [fields, setFields] = useState<EditableTrackerField[]>([])
   const [dueAt, setDueAt] = useState('')
+  const [recurrenceRule, setRecurrenceRule] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -205,6 +207,7 @@ export default function TrackerSettingsPage() {
     setItem(tracker)
     setTitle(tracker.title)
     setDueAt(typeof tracker.dueAt === 'string' ? tracker.dueAt.slice(0, 10) : '')
+    setRecurrenceRule(tracker.recurrenceRule ?? '')
     setFields(toEditableFields(schema.fields ?? []))
     setLoading(false)
   }
@@ -268,6 +271,8 @@ export default function TrackerSettingsPage() {
       body: JSON.stringify({
         title: title.trim(),
         dueAt: item?.type === 'todo' ? (dueAt.trim() ? dueAt.trim() : null) : undefined,
+        recurrenceRule:
+          item?.type === 'todo' ? (recurrenceRule.trim() ? recurrenceRule.trim() : null) : undefined,
         schema,
       }),
     })
@@ -400,20 +405,41 @@ export default function TrackerSettingsPage() {
               </div>
 
               {item?.type === 'todo' && (
-                <div style={{ display: 'grid', gap: 6 }}>
-                  <label style={{ fontWeight: 600, fontSize: 13 }}>Container Due Date</label>
-                  <input
-                    type="date"
-                    value={dueAt}
-                    onChange={(e) => setDueAt(e.target.value)}
-                    style={{
-                      height: 36,
-                      padding: '0 10px',
-                      borderRadius: 8,
-                      border: '1px solid rgba(0,0,0,0.18)',
-                    }}
-                  />
-                </div>
+                <>
+                  <div style={{ display: 'grid', gap: 6 }}>
+                    <label style={{ fontWeight: 600, fontSize: 13 }}>Container Due Date</label>
+                    <input
+                      type="date"
+                      value={dueAt}
+                      onChange={(e) => setDueAt(e.target.value)}
+                      style={{
+                        height: 36,
+                        padding: '0 10px',
+                        borderRadius: 8,
+                        border: '1px solid rgba(0,0,0,0.18)',
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gap: 6 }}>
+                    <label style={{ fontWeight: 600, fontSize: 13 }}>Repeat</label>
+                    <select
+                      value={recurrenceRule}
+                      onChange={(e) => setRecurrenceRule(e.target.value)}
+                      style={{
+                        height: 36,
+                        padding: '0 10px',
+                        borderRadius: 8,
+                        border: '1px solid rgba(0,0,0,0.18)',
+                        maxWidth: 220,
+                      }}
+                    >
+                      <option value="">None</option>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+                </>
               )}
             </div>
           </section>

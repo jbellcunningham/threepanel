@@ -43,6 +43,7 @@ type TrackerSchema = {
 type PatchEntryBody = {
   // data contains the schema-driven values (fieldId -> value)
   data?: Record<string, unknown>
+  dueAt?: string | null
   recurrenceRule?: string | null
   // legacy optional fields (kept for compatibility)
   title?: string | null
@@ -62,6 +63,48 @@ function isNonEmptyString(v: unknown): v is string {
 }
 function isFiniteNumber(v: unknown): v is number {
   return typeof v === 'number' && Number.isFinite(v)
+}
+
+function getEntryDataRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {}
+  }
+
+  return value as Record<string, unknown>
+}
+
+function normalizeEntryData(
+  schema: TrackerSchema | null,
+  data: Record<string, unknown>
+): Record<string, unknown> {
+  if (!schema?.fields?.length) {
+    return data
+  }
+
+  const result = { ...data }
+
+  for (const field of schema.fields) {
+    if (field.type !== 'boolean' || !(field.id in result)) {
+      continue
+    }
+
+    const value = result[field.id]
+
+    if (typeof value === 'boolean') {
+      continue
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase()
+      if (normalized === 'true') {
+        result[field.id] = true
+      } else if (normalized === 'false') {
+        result[field.id] = false
+      }
+    }
+  }
+
+  return result
 }
 
 function parseEntryDueAt(value: unknown): Date | null {
@@ -181,13 +224,31 @@ export async function PATCH(
   }
   const body = (bodyOrErr as PatchEntryBody) ?? {}
 
-  const data = (body.data ?? existing.data ?? {}) as Record<string, unknown>
-
-  // validate against schema if present
   const schema = (existing.tracker.schema ?? null) as TrackerSchema | null
+  const data = normalizeEntryData(schema, {
+    ...getEntryDataRecord(existing.data),
+    ...getEntryDataRecord(body.data),
+  })
+
   const validationError = validateAgainstSchema(schema, data)
   if (validationError) {
     return NextResponse.json({ ok: false, error: validationError }, { status: 400 })
+  }
+
+  let resolvedDueAt = parseEntryDueAt(data.due_at ?? data.dueAt)
+
+  if (body.dueAt !== undefined) {
+    if (body.dueAt === null || body.dueAt === '') {
+      resolvedDueAt = null
+    } else if (Number.isNaN(Date.parse(body.dueAt))) {
+      return NextResponse.json({ ok: false, error: 'Invalid dueAt value' }, { status: 400 })
+    } else {
+      resolvedDueAt = new Date(body.dueAt)
+    }
+  }
+
+  if (resolvedDueAt) {
+    data.due_at = resolvedDueAt.toISOString().slice(0, 10)
   }
 
   // prepare update payload
@@ -199,7 +260,7 @@ export async function PATCH(
     content?: string | null
   } = {
     data,
-    dueAt: parseEntryDueAt(data.due_at ?? data.dueAt),
+    dueAt: resolvedDueAt,
   }
 
   if (body.recurrenceRule !== undefined) {

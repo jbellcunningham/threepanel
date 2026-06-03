@@ -963,15 +963,13 @@ async function loadStats() {
 
     setError(null)
 
-    const base = new Date()
-    let nextDue = new Date(base)
-
-    if (mode === '1_week') {
-      nextDue.setDate(base.getDate() + 7)
-    } else if (mode === '1_month') {
-      nextDue.setMonth(base.getMonth() + 1)
-    } else if (mode === 'custom') {
-      const suggested = toIsoDate(nextDue)
+    let customDueAt: string | undefined
+    if (mode === 'custom') {
+      const currentDue =
+        typeof entry.dueAt === 'string' && entry.dueAt
+          ? parseTodoDueDate(entry.dueAt)
+          : parseTodoDueDate(entry.data?.due_at ?? entry.data?.dueAt)
+      const suggested = toIsoDate(currentDue ?? new Date())
       const value = window.prompt('Set due date (YYYY-MM-DD)', suggested)
       if (value === null) return
       const parsed = parseTodoDueDate(value)
@@ -979,20 +977,16 @@ async function loadStats() {
         setError('Invalid custom due date. Use YYYY-MM-DD.')
         return
       }
-      nextDue = parsed
-    } else {
-      nextDue.setDate(base.getDate() + 1)
+      customDueAt = toIsoDate(parsed)
     }
 
-    const res = await fetch(`/api/tracker/${containerId}/entries/${entry.id}`, {
-      method: 'PATCH',
+    const res = await fetch(`/api/tracker/${containerId}/entries/${entry.id}/push`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({
-        data: {
-          ...(entry.data ?? {}),
-          due_at: toIsoDate(nextDue),
-        },
+        mode,
+        dueAt: customDueAt ?? null,
       }),
     })
 
@@ -1006,6 +1000,10 @@ async function loadStats() {
     }
 
     if (!res.ok || !data?.ok) {
+      if (raw.trim().startsWith('<!DOCTYPE') || raw.trim().startsWith('<html')) {
+        setError('Push failed — server could not find the push API. Redeploy or restart the app.')
+        return
+      }
       setError(data?.error || raw || 'Failed to push due date')
       return
     }
@@ -2175,7 +2173,10 @@ async function loadStats() {
                                   >
                                     <button
                                       type="button"
-                                      onClick={() => pushTodoEntryDueDate(entry, '1_day')}
+                                      onClick={(e) => {
+                                      e.stopPropagation()
+                                      pushTodoEntryDueDate(entry, '1_day')
+                                    }}
                                       style={{
                                         textAlign: 'left',
                                         borderRadius: 8,

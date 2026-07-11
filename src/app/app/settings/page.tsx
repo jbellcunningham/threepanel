@@ -980,6 +980,20 @@ async function onSave() {
             ☰
             {overdueCount > 0 && (
               <span
+                role="button"
+                tabIndex={0}
+                title="View overdue items"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  router.push('/app/todos/today')
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    router.push('/app/todos/today')
+                  }
+                }}
                 style={{
                   position: 'absolute',
                   top: -6,
@@ -993,6 +1007,7 @@ async function onSave() {
                   lineHeight: '18px',
                   textAlign: 'center',
                   padding: '0 4px',
+                  cursor: 'pointer',
                 }}
               >
                 {overdueCount > 99 ? '99+' : overdueCount}

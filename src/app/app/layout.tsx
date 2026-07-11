@@ -73,7 +73,7 @@ export default function AppLayout({
       <main
         style={{
           flex: 1,
-          padding: 16,
+          padding: 'clamp(10px, 3vw, 16px)',
           boxSizing: 'border-box',
           width: '100%',
           minWidth: 0,

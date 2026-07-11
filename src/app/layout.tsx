@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import './globals.css'
 import PwaInit from '@/components/PwaInit'
 
 export const metadata: Metadata = {
@@ -14,6 +15,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: '#ffffff',
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({

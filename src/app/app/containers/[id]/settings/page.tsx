@@ -437,6 +437,8 @@ export default function TrackerSettingsPage() {
                       <option value="daily">Daily</option>
                       <option value="weekly">Weekly</option>
                       <option value="monthly">Monthly</option>
+                      <option value="quarterly">Quarterly</option>
+                      <option value="yearly">Yearly</option>
                     </select>
                   </div>
                 </>
@@ -536,6 +538,7 @@ export default function TrackerSettingsPage() {
                           <option value="number">number</option>
                           <option value="boolean">boolean</option>
                           <option value="date">date</option>
+                          <option value="time">time</option>
                           <option value="dropdown">dropdown</option>
                         </select>
                       </div>

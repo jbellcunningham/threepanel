@@ -1,42 +1,63 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 html,
 body {
+  margin: 0;
+  padding: 0;
   max-width: 100vw;
   overflow-x: hidden;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: #171717;
+  background: #ffffff;
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
 a {
   color: inherit;
-  text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* Keep interactive controls comfortably tappable on touch screens. */
+button {
+  touch-action: manipulation;
+}
+
+/* Small screens: tighten default heading sizes so long titles fit. */
+@media (max-width: 600px) {
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  /* Let the row of container card action buttons wrap instead of
+     overflowing / crowding the title on narrow screens. */
+  .container-card-actions {
+    flex-wrap: wrap;
+    max-width: 112px;
   }
 }

@@ -1,7 +1,13 @@
-export type RecurrenceRule = 'daily' | 'weekly' | 'monthly'
+export type RecurrenceRule = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
 
 export function parseRecurrenceRule(value: unknown): RecurrenceRule | null {
-  if (value === 'daily' || value === 'weekly' || value === 'monthly') {
+  if (
+    value === 'daily' ||
+    value === 'weekly' ||
+    value === 'monthly' ||
+    value === 'quarterly' ||
+    value === 'yearly'
+  ) {
     return value
   }
 
@@ -18,6 +24,16 @@ export function advanceDueDate(from: Date, rule: RecurrenceRule): Date {
 
   if (rule === 'weekly') {
     next.setUTCDate(next.getUTCDate() + 7)
+    return next
+  }
+
+  if (rule === 'quarterly') {
+    next.setUTCMonth(next.getUTCMonth() + 3)
+    return next
+  }
+
+  if (rule === 'yearly') {
+    next.setUTCFullYear(next.getUTCFullYear() + 1)
     return next
   }
 

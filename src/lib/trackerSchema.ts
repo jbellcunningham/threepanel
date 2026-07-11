@@ -21,7 +21,14 @@
  * What kinds of fields a tracker can define.
  * We keep this small at first; we can add more later without breaking old schemas.
  */
-export type TrackerFieldType = 'text' | 'number' | 'date' | 'checkbox' | 'select'
+export type TrackerFieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'boolean'
+  | 'date'
+  | 'time'
+  | 'dropdown'
 
 /**
  * A single field definition inside a tracker schema.

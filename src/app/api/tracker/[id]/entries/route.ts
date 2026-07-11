@@ -13,7 +13,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { parseRecurrenceRule } from '@/lib/todoRecurrence'
 
 /* 2) Types: schema + request shapes used in this route */
-type TrackerFieldType = 'text' | 'number' | 'boolean'
+type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'time' | 'dropdown'
 
 type TrackerField = {
   id: string
@@ -70,7 +70,7 @@ function validateAgainstSchema(schema: TrackerSchema | null, data: Record<string
 
     const value = data[field.id]
 
-    if (field.type === 'text') {
+    if (field.type === 'text' || field.type === 'time') {
       if (!isNonEmptyString(value)) return `Field "${field.label}" is required.`
     }
 
@@ -132,7 +132,7 @@ export async function POST(
     const rule = parseRecurrenceRule(body.recurrenceRule)
     if (!rule) {
       return NextResponse.json(
-        { ok: false, error: 'Invalid recurrenceRule (daily, weekly, monthly)' },
+        { ok: false, error: 'Invalid recurrenceRule (daily, weekly, monthly, quarterly, yearly)' },
         { status: 400 }
       )
     }

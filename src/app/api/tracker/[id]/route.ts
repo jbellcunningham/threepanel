@@ -19,7 +19,7 @@ import { nextDueAfterComplete, parseRecurrenceRule } from '@/lib/todoRecurrence'
    2) Types: response/request shapes used by this route
    ========================================================= */
 
-type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'dropdown'
+type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'time' | 'dropdown'
 type ListDisplayMode = 'none' | 'summary' | 'average'
 
 type TrackerField = {
@@ -50,6 +50,8 @@ type UpdateTrackerBody = {
   done?: boolean
   doneAt?: string | null
   statusUpdatedAt?: string | null
+  pinned?: boolean
+  sortOrder?: number
 }
 
 /* =========================================================
@@ -83,6 +85,7 @@ function isValidFieldType(v: unknown): v is TrackerFieldType {
     v === 'number' ||
     v === 'boolean' ||
     v === 'date' ||
+    v === 'time' ||
     v === 'dropdown'
   )
 }
@@ -266,6 +269,8 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
     done?: boolean
     doneAt?: Date | null
     statusUpdatedAt?: Date | null
+    pinned?: boolean
+    sortOrder?: number
   } = {}
 
   // (e) Validate optional title
@@ -302,7 +307,7 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
       const rule = parseRecurrenceRule(body.recurrenceRule)
       if (!rule) {
         return NextResponse.json(
-          { ok: false, error: 'Invalid recurrenceRule (daily, weekly, monthly)' },
+          { ok: false, error: 'Invalid recurrenceRule (daily, weekly, monthly, quarterly, yearly)' },
           { status: 400 }
         )
       }
@@ -343,6 +348,22 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
       : null
   }
 
+  if (body.pinned !== undefined) {
+    if (typeof body.pinned !== 'boolean') {
+      return NextResponse.json({ ok: false, error: 'Invalid pinned value' }, { status: 400 })
+    }
+
+    updateData.pinned = body.pinned
+  }
+
+  if (body.sortOrder !== undefined) {
+    if (typeof body.sortOrder !== 'number' || !Number.isFinite(body.sortOrder)) {
+      return NextResponse.json({ ok: false, error: 'Invalid sortOrder value' }, { status: 400 })
+    }
+
+    updateData.sortOrder = Math.trunc(body.sortOrder)
+  }
+
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ ok: false, error: 'No valid fields to update' }, { status: 400 })
   }
@@ -373,6 +394,8 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
       recurrenceRule: true,
       doneAt: true,
       statusUpdatedAt: true,
+      pinned: true,
+      sortOrder: true,
       createdAt: true,
       updatedAt: true,
       schema: true,

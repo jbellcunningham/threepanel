@@ -37,7 +37,7 @@ type ContainerSummary = {
   lastEntryAt?: string | null
 }
 
-type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'dropdown'
+type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'time' | 'dropdown'
 type ListDisplayMode = 'none' | 'latest' | 'summary' | 'average'
 
 type TrackerField = {
@@ -63,6 +63,8 @@ type ContainerItem = {
   done: boolean
   dueAt?: string | null
   createdAt: string
+  pinned?: boolean
+  sortOrder?: number
   schema?: TrackerSchema | null
   latestEntry?: {
     id: string
@@ -229,6 +231,7 @@ export default function ContainersPage() {
   const [showMenu, setShowMenu] = useState(false)
   const [overdueCount, setOverdueCount] = useState(0)
   const [hideCompletedTodos, setHideCompletedTodos] = useState(true)
+  const [sortMode, setSortMode] = useState<'default' | 'due' | 'title'>('default')
 
   /* -----------------------------
      Derived values
@@ -254,8 +257,22 @@ export default function ContainersPage() {
       result = result.filter((item) => !(item.type === 'todo' && item.done))
     }
 
+    if (sortMode === 'due') {
+      const dueTime = (item: ContainerItem) => {
+        const raw = typeof item.dueAt === 'string' ? item.dueAt.trim() : ''
+        if (!raw) return Number.POSITIVE_INFINITY
+        const t = new Date(raw).getTime()
+        return Number.isNaN(t) ? Number.POSITIVE_INFINITY : t
+      }
+      result = [...result].sort((a, b) => dueTime(a) - dueTime(b))
+    } else if (sortMode === 'title') {
+      result = [...result].sort((a, b) =>
+        a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
+      )
+    }
+
     return result
-  }, [items, typeFilter, hideCompletedTodos])
+  }, [items, typeFilter, hideCompletedTodos, sortMode])
 
   const pageTitle = useMemo(() => getContainerListTitle(typeFilter), [typeFilter])
   const pageDescription = useMemo(
@@ -505,6 +522,63 @@ async function loadContainerTypes() {
     await load()
   }
 
+  async function togglePinned(id: string, nextPinned: boolean) {
+    setError(null)
+
+    const res = await fetch(`/api/tracker/${id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pinned: nextPinned }),
+    })
+
+    if (!res.ok) {
+      const raw = await res.text()
+      setError(raw || 'Failed to update container')
+      return
+    }
+
+    await load()
+  }
+
+  async function moveContainer(id: string, direction: 'up' | 'down') {
+    setError(null)
+
+    const visibleIndex = filteredItems.findIndex((item) => item.id === id)
+    if (visibleIndex === -1) return
+
+    const neighbor = filteredItems[visibleIndex + (direction === 'up' ? -1 : 1)]
+    if (!neighbor) return
+
+    const ordered = [...items]
+    const a = ordered.findIndex((item) => item.id === id)
+    const b = ordered.findIndex((item) => item.id === neighbor.id)
+    if (a === -1 || b === -1) return
+
+    const temp = ordered[a]
+    ordered[a] = ordered[b]
+    ordered[b] = temp
+
+    const reindexed = ordered.map((item, index) => ({ ...item, sortOrder: index }))
+    setItems(reindexed)
+
+    const results = await Promise.all(
+      reindexed.map((item) =>
+        fetch(`/api/tracker/${item.id}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sortOrder: item.sortOrder }),
+        })
+      )
+    )
+
+    if (results.some((res) => !res.ok)) {
+      setError('Failed to save new order')
+      await load()
+    }
+  }
+
   function applyTypeFilter(nextType: string) {
     setShowMenu(false)
 
@@ -684,6 +758,20 @@ async function loadContainerTypes() {
             ☰
             {overdueCount > 0 && (
               <span
+                role="button"
+                tabIndex={0}
+                title="View overdue items"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  router.push('/app/todos/today')
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    router.push('/app/todos/today')
+                  }
+                }}
                 style={{
                   position: 'absolute',
                   top: -6,
@@ -697,6 +785,7 @@ async function loadContainerTypes() {
                   lineHeight: '18px',
                   textAlign: 'center',
                   padding: '0 4px',
+                  cursor: 'pointer',
                 }}
               >
                 {overdueCount > 99 ? '99+' : overdueCount}
@@ -990,6 +1079,29 @@ async function loadContainerTypes() {
         </label>
       )}
 
+      {!loading && filteredItems.length > 0 && (
+        <label
+          style={{
+            marginTop: 12,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            fontSize: 13,
+          }}
+        >
+          Sort
+          <select
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as 'default' | 'due' | 'title')}
+            style={{ padding: '6px 8px' }}
+          >
+            <option value="default">Newest first</option>
+            <option value="due">Due date (soonest)</option>
+            <option value="title">Title (A–Z)</option>
+          </select>
+        </label>
+      )}
+
       <section style={{ marginTop: 16 }}>
         {loading ? (
           <div>Loading…</div>
@@ -1003,9 +1115,10 @@ async function loadContainerTypes() {
           </div>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
-            {filteredItems.map((it) => {
+            {filteredItems.map((it, itIndex) => {
               const totalOverdueCount =
                 (it.summary?.overdueSubtaskCount ?? 0) + (it.summary?.containerOverdueCount ?? 0)
+              const canReorder = sortMode === 'default'
 
               return (
               <div
@@ -1112,8 +1225,81 @@ async function loadContainerTypes() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-   
+                <div
+                  className="container-card-actions"
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    flexShrink: 0,
+                    justifyContent: 'flex-end',
+                  }}
+                >
+
+                  <button
+                    type="button"
+                    title={it.pinned ? 'Unpin from top' : 'Keep on top'}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      togglePinned(it.id, !it.pinned)
+                    }}
+                    style={{
+                      height: 32,
+                      width: 32,
+                      borderRadius: 8,
+                      border: '1px solid rgba(0,0,0,0.12)',
+                      background: it.pinned ? 'rgba(37,99,235,0.12)' : 'transparent',
+                      cursor: 'pointer',
+                      opacity: it.pinned ? 1 : 0.55,
+                    }}
+                  >
+                    📌
+                  </button>
+
+                  {canReorder ? (
+                    <>
+                      <button
+                        type="button"
+                        title="Move up"
+                        disabled={itIndex === 0}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          moveContainer(it.id, 'up')
+                        }}
+                        style={{
+                          height: 32,
+                          width: 32,
+                          borderRadius: 8,
+                          border: '1px solid rgba(0,0,0,0.12)',
+                          background: 'transparent',
+                          cursor: itIndex === 0 ? 'default' : 'pointer',
+                          opacity: itIndex === 0 ? 0.35 : 1,
+                        }}
+                      >
+                        ⬆️
+                      </button>
+                      <button
+                        type="button"
+                        title="Move down"
+                        disabled={itIndex === filteredItems.length - 1}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          moveContainer(it.id, 'down')
+                        }}
+                        style={{
+                          height: 32,
+                          width: 32,
+                          borderRadius: 8,
+                          border: '1px solid rgba(0,0,0,0.12)',
+                          background: 'transparent',
+                          cursor: itIndex === filteredItems.length - 1 ? 'default' : 'pointer',
+                          opacity: itIndex === filteredItems.length - 1 ? 0.35 : 1,
+                        }}
+                      >
+                        ⬇️
+                      </button>
+                    </>
+                  ) : null}
+
                   {it.type === 'todo' ? (
                     <button
                       type="button"

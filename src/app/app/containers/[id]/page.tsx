@@ -183,6 +183,7 @@ function getEffectiveSchema(item: TrackerItem | null | undefined): TrackerSchema
     return {
       version: 1,
       fields: [
+        { id: 'title', label: 'Title', type: 'text', showInCards: true },
         { id: 'recordedDate', label: 'Recorded Date', type: 'date', required: true },
         { id: 'location', label: 'Location', type: 'dropdown' },
         { id: 'textEntry', label: 'Text Entry', type: 'textarea', required: true }
@@ -282,6 +283,34 @@ function getJournalEntryText(entry: TrackerEntry) {
   const value = entry.data?.textEntry
 
   return typeof value === 'string' ? value.trim() : ''
+}
+
+const URL_SPLIT_REGEX = /(https?:\/\/[^\s]+)/g
+const URL_TEST_REGEX = /^https?:\/\/[^\s]+$/
+
+/**
+ * Splits free text into React nodes, rendering any http(s) URLs as
+ * hyperlinks that open in a new browser window.
+ */
+function linkifyText(text: string) {
+  return text.split(URL_SPLIT_REGEX).map((part, index) => {
+    if (URL_TEST_REGEX.test(part)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          style={{ color: '#2563eb', textDecoration: 'underline', wordBreak: 'break-word' }}
+        >
+          {part}
+        </a>
+      )
+    }
+
+    return <span key={index}>{part}</span>
+  })
 }
 
 function shouldRenderJournalBody(
@@ -498,6 +527,7 @@ export default function ContainerDetailPage() {
         field.type === 'text' ||
         field.type === 'textarea' ||
         field.type === 'date' ||
+        field.type === 'time' ||
         field.type === 'dropdown'
       ) {
         if (typeof value !== 'string' || value.trim().length === 0) return false
@@ -737,6 +767,7 @@ async function loadStats() {
         field.type === 'text' ||
         field.type === 'textarea' ||
         field.type === 'date' ||
+        field.type === 'time' ||
         field.type === 'dropdown'
       ) {
         nextValue = String(rawValue)
@@ -1202,6 +1233,14 @@ async function loadStats() {
               <div style={{ fontSize: 12, opacity: 0.7 }}>
                 Created: {formatDate(item.createdAt)}
               </div>
+              {item.type?.toLowerCase?.() === 'todo' &&
+                (item.dueAt || item.recurrenceRule) && (
+                  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
+                    {item.dueAt ? `Due: ${formatDate(item.dueAt)}` : ''}
+                    {item.dueAt && item.recurrenceRule ? ' · ' : ''}
+                    {item.recurrenceRule ? `Repeats ${item.recurrenceRule}` : ''}
+                  </div>
+                )}
             </>
           )}
         </div>
@@ -1239,6 +1278,20 @@ async function loadStats() {
             ☰
             {overdueCount > 0 && (
               <span
+                role="button"
+                tabIndex={0}
+                title="View overdue items"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  router.push('/app/todos/today')
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    router.push('/app/todos/today')
+                  }
+                }}
                 style={{
                   position: 'absolute',
                   top: -6,
@@ -1252,6 +1305,7 @@ async function loadStats() {
                   lineHeight: '18px',
                   textAlign: 'center',
                   padding: '0 4px',
+                  cursor: 'pointer',
                 }}
               >
                 {overdueCount > 99 ? '99+' : overdueCount}
@@ -1629,6 +1683,8 @@ async function loadStats() {
                               ? 'number'
                               : field.type === 'date'
                               ? 'date'
+                              : field.type === 'time'
+                              ? 'time'
                               : 'text'
                           }
                           value={
@@ -1667,6 +1723,8 @@ async function loadStats() {
                       <option value="daily">Daily</option>
                       <option value="weekly">Weekly</option>
                       <option value="monthly">Monthly</option>
+                      <option value="quarterly">Quarterly</option>
+                      <option value="yearly">Yearly</option>
                     </select>
                   </div>
                 )}
@@ -2192,7 +2250,10 @@ async function loadStats() {
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => pushTodoEntryDueDate(entry, '1_week')}
+                                      onClick={(e) => {
+                                      e.stopPropagation()
+                                      pushTodoEntryDueDate(entry, '1_week')
+                                    }}
                                       style={{
                                         textAlign: 'left',
                                         borderRadius: 8,
@@ -2207,7 +2268,10 @@ async function loadStats() {
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => pushTodoEntryDueDate(entry, '1_month')}
+                                      onClick={(e) => {
+                                      e.stopPropagation()
+                                      pushTodoEntryDueDate(entry, '1_month')
+                                    }}
                                       style={{
                                         textAlign: 'left',
                                         borderRadius: 8,
@@ -2222,7 +2286,10 @@ async function loadStats() {
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => pushTodoEntryDueDate(entry, 'custom')}
+                                      onClick={(e) => {
+                                      e.stopPropagation()
+                                      pushTodoEntryDueDate(entry, 'custom')
+                                    }}
                                       style={{
                                         textAlign: 'left',
                                         borderRadius: 8,
@@ -2322,7 +2389,7 @@ async function loadStats() {
                             lineHeight: 1.5
                           }}
                         >
-                          {getJournalEntryText(entry)}
+                          {linkifyText(getJournalEntryText(entry))}
                         </div>
                       ) : null}
 

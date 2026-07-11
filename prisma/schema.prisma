@@ -71,6 +71,8 @@ model TrackerItem {
   done            Boolean  @default(false)
   doneAt          DateTime?
   statusUpdatedAt DateTime?
+  pinned          Boolean  @default(false)
+  sortOrder       Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -80,6 +82,8 @@ model TrackerItem {
 
   @@index([userId])
   @@index([dueAt])
+  @@index([pinned])
+  @@index([sortOrder])
 }
 
 model TrackerEntry {

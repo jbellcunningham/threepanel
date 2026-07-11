@@ -37,6 +37,8 @@ function recurrenceLabel(rule: string | null) {
   if (rule === 'daily') return 'Daily'
   if (rule === 'weekly') return 'Weekly'
   if (rule === 'monthly') return 'Monthly'
+  if (rule === 'quarterly') return 'Quarterly'
+  if (rule === 'yearly') return 'Yearly'
   return rule
 }
 

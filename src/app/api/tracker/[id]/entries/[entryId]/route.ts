@@ -25,7 +25,7 @@ import { nextDueAfterComplete, parseRecurrenceRule } from '@/lib/todoRecurrence'
    2) Types
    ============================ */
 
-type TrackerFieldType = 'text' | 'number' | 'boolean' | 'date' | 'dropdown'
+type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'time' | 'dropdown'
 
 type TrackerField = {
   id: string
@@ -138,7 +138,13 @@ function validateAgainstSchema(schema: TrackerSchema | null, data: Record<string
 
     const value = data[field.id]
 
-    if (field.type === 'text' || field.type === 'dropdown' || field.type === 'date') {
+    if (
+      field.type === 'text' ||
+      field.type === 'textarea' ||
+      field.type === 'dropdown' ||
+      field.type === 'date' ||
+      field.type === 'time'
+    ) {
       if (!isNonEmptyString(value)) return `Field "${field.label}" is required.`
     } else if (field.type === 'number') {
       if (!isFiniteNumber(value)) return `Field "${field.label}" must be a number.`
@@ -270,7 +276,7 @@ export async function PATCH(
       const rule = parseRecurrenceRule(body.recurrenceRule)
       if (!rule) {
         return NextResponse.json(
-          { ok: false, error: 'Invalid recurrenceRule (daily, weekly, monthly)' },
+          { ok: false, error: 'Invalid recurrenceRule (daily, weekly, monthly, quarterly, yearly)' },
           { status: 400 }
         )
       }

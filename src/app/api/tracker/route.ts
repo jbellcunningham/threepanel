@@ -42,6 +42,8 @@ type TrackerListItem = {
   done: boolean
   dueAt: string | null
   createdAt: string
+  pinned: boolean
+  sortOrder: number
   schema: TrackerSchema | null
   latestEntry: {
     id: string
@@ -66,7 +68,7 @@ type ListEntry = {
   data: unknown
 }
 
-type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'dropdown'
+type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'time' | 'dropdown'
 
 type ListDisplayMode = 'none' | 'summary' | 'average'
 
@@ -120,6 +122,7 @@ function getDefaultSchema(type: BuiltInType): unknown {
     return {
       version: 1,
       fields: [
+        { id: 'title', label: 'Title', type: 'text', showInCards: true },
         { id: 'recordedDate', label: 'Recorded Date', type: 'date', required: true },
         { id: 'location', label: 'Location', type: 'dropdown' },
         { id: 'textEntry', label: 'Text Entry', type: 'text', required: true }
@@ -208,6 +211,7 @@ function getEffectiveSchema(type: string, schema: TrackerSchema | null | undefin
     return {
       version: 1,
       fields: [
+        { id: 'title', label: 'Title', type: 'text', showInCards: true },
         { id: 'recordedDate', label: 'Recorded Date', type: 'date', required: true },
         { id: 'location', label: 'Location', type: 'dropdown' },
         { id: 'textEntry', label: 'Text Entry', type: 'textarea', required: true }
@@ -480,9 +484,11 @@ export async function GET() {
     where: {
       userId: user.id
     },
-    orderBy: {
-      createdAt: 'desc'
-    },
+    orderBy: [
+      { pinned: 'desc' },
+      { sortOrder: 'asc' },
+      { createdAt: 'desc' }
+    ],
     select: {
       id: true,
       title: true,
@@ -490,6 +496,8 @@ export async function GET() {
       done: true,
       dueAt: true,
       createdAt: true,
+      pinned: true,
+      sortOrder: true,
       schema: true,
       entries: {
         orderBy: {
@@ -516,6 +524,8 @@ export async function GET() {
       done: it.done,
       dueAt: it.dueAt ? it.dueAt.toISOString() : null,
       createdAt: it.createdAt.toISOString(),
+      pinned: it.pinned,
+      sortOrder: it.sortOrder,
       schema: normalizedSchema,
       latestEntry:
         it.entries.length > 0

@@ -146,6 +146,10 @@ function getGeneratedDropdownOptions(fieldKey: string, entries: JournalEntry[]) 
 }
 
 function getEntryTitle(data: Record<string, unknown>) {
+  if (typeof data.title === 'string' && data.title.trim()) {
+    return data.title.trim()
+  }
+
   if (typeof data.textEntry === 'string' && data.textEntry.trim()) {
     return data.textEntry.trim()
   }

@@ -22,7 +22,7 @@ import {
  * Types
  */
 
-type TrackerFieldType = "text" | "textarea" | "number" | "boolean" | "date" | "dropdown";
+type TrackerFieldType = "text" | "textarea" | "number" | "boolean" | "date" | "time" | "dropdown";
 
 type TrackerField = {
   id: string;

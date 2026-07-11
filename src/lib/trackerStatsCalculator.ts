@@ -24,7 +24,7 @@ import type { TrackerStatistics, TimeSeriesPoint } from '@/lib/trackerStats'
    2) Types
    ========================================================= */
 
-export type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'dropdown'
+export type TrackerFieldType = 'text' | 'textarea' | 'number' | 'boolean' | 'date' | 'time' | 'dropdown'
 
 export type TrackerField = {
   id: string

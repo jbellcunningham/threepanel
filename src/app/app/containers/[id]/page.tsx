@@ -279,14 +279,9 @@ function formatEntrySummary(
   return parts.join(' • ')
 }
 
-function getJournalEntryText(entry: TrackerEntry) {
-  const value = entry.data?.textEntry
-
-  return typeof value === 'string' ? value.trim() : ''
-}
-
 const URL_SPLIT_REGEX = /(https?:\/\/[^\s]+)/g
 const URL_TEST_REGEX = /^https?:\/\/[^\s]+$/
+const URL_HAS_REGEX = /https?:\/\/[^\s]+/
 
 /**
  * Splits free text into React nodes, rendering any http(s) URLs as
@@ -313,14 +308,70 @@ function linkifyText(text: string) {
   })
 }
 
-function shouldRenderJournalBody(
-  schema: TrackerSchema | null | undefined
-) {
-  const fieldsToUse = getDisplayFields(schema, 'cards')
-
-  return fieldsToUse.some((field) => field.id === 'textEntry')
+type LinkifiableField = {
+  id: string
+  label: string
+  type: 'text' | 'textarea'
+  value: string
 }
 
+/**
+ * Returns the text/textarea field values that should be rendered as a
+ * read-only, linkified detail block beneath an entry's title.
+ *
+ * A field is included when it holds a non-empty string and either:
+ *  - it is not already shown in the (plain-text) title summary, or
+ *  - it is shown there but contains a URL that we want to make clickable.
+ */
+function getLinkifiableEntryFields(
+  schema: TrackerSchema | null | undefined,
+  entry: TrackerEntry,
+  displayFieldIds: Set<string>
+): LinkifiableField[] {
+  if (!schema?.fields?.length) {
+    return []
+  }
+
+  const data = entry.data ?? {}
+  const result: LinkifiableField[] = []
+
+  for (const field of schema.fields) {
+    if (field.type !== 'text' && field.type !== 'textarea') {
+      continue
+    }
+
+    const raw = data[field.id]
+    if (typeof raw !== 'string') {
+      continue
+    }
+
+    const value = raw.trim()
+    if (!value) {
+      continue
+    }
+
+    const hasUrl = URL_HAS_REGEX.test(value)
+    const shownInTitle = displayFieldIds.has(field.id)
+
+    if (field.type === 'textarea') {
+      // Long-form bodies (e.g. journal text) are shown in full, unless they
+      // are already the entry's title summary and carry no link.
+      if (shownInTitle && !hasUrl) {
+        continue
+      }
+    } else {
+      // Short text fields are only surfaced here when they contain a link to
+      // expose as clickable; otherwise they stay in the plain title summary.
+      if (!hasUrl) {
+        continue
+      }
+    }
+
+    result.push({ id: field.id, label: field.label, type: field.type, value })
+  }
+
+  return result
+}
 
 /**
  * Collects prior unique values for a dropdown field from this tracker's entries.
@@ -2379,19 +2430,44 @@ async function loadStats() {
                         </div>
                       </div>
 
-                      {item?.type === 'journal' &&
-                      shouldRenderJournalBody(schema) &&
-                      getJournalEntryText(entry) ? (
-                        <div
-                          style={{
-                            marginTop: 8,
-                            whiteSpace: 'pre-wrap',
-                            lineHeight: 1.5
-                          }}
-                        >
-                          {linkifyText(getJournalEntryText(entry))}
-                        </div>
-                      ) : null}
+                      {(() => {
+                        const displayFieldIds = new Set(
+                          getDisplayFields(schema, 'cards').map((f) => f.id)
+                        )
+                        const linkFields = getLinkifiableEntryFields(
+                          schema,
+                          entry,
+                          displayFieldIds
+                        )
+
+                        if (linkFields.length === 0) {
+                          return null
+                        }
+
+                        return (
+                          <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+                            {linkFields.map((f) => (
+                              <div
+                                key={f.id}
+                                style={{
+                                  whiteSpace: 'pre-wrap',
+                                  lineHeight: 1.5,
+                                  fontSize: f.type === 'textarea' ? 'inherit' : 13,
+                                  opacity: f.type === 'textarea' ? 1 : 0.85,
+                                }}
+                              >
+                                {f.type === 'textarea' ? (
+                                  linkifyText(f.value)
+                                ) : (
+                                  <>
+                                    {f.label}: {linkifyText(f.value)}
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })()}
 
                       {isTodoLikeContainer && dueMeta.hasDueDate && dueMeta.dueDate && (
                         <div

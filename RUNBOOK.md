@@ -180,3 +180,50 @@ When testing auth:
 - `GET /api/me` should return `200` after login
 - `GET /api/me` returning `401` before login is expected
 
+---
+
+## 12) TLS / SSL Certificate
+
+ThreePanel is served over HTTPS at **`app.es1creative.com`** (nginx site file
+`threepanel`). The certificate **auto-renews** via
+[`acme.sh`](https://github.com/acmesh-official/acme.sh); cert tasks run as
+**root** (`sudo -i`).
+
+> Full architecture (shared automation hub, Cloudflare token, add-a-domain
+> recipe) is documented in the **BrownTroutSystems** repo `RUNBOOK.md`. This is
+> the ThreePanel-specific summary.
+
+### How it works
+
+- `app.es1creative.com` is covered by the **`es1creative.com`** certificate
+  (SAN: `es1creative.com`, `www.es1creative.com`, `app.es1creative.com`).
+- `es1creative.com` is the **automation hub**: its DNS is on **Cloudflare**, so
+  acme.sh validates DNS-01 **directly** through the Cloudflare API
+  (`dns_cf`) — no CNAME delegation needed for this domain.
+- Cert installed at `/etc/acme-certs/es1creative/{fullchain.pem,privkey.pem}`,
+  referenced by the nginx `threepanel` site (and the `es1creative` apex/www
+  parking site). acme.sh reloads nginx on renewal.
+
+### Check / force renew (on `es1-server`)
+
+```bash
+sudo -i
+~/.acme.sh/acme.sh --list                                # renewal dates
+~/.acme.sh/acme.sh --renew -d es1creative.com --ecc --force   # renews all 3 SANs
+```
+
+Note: because the cert's main domain is `es1creative.com`, renew/verify against
+that name (not `app.es1creative.com`).
+
+### Verify the served cert
+
+```bash
+echo | openssl s_client -servername app.es1creative.com \
+  -connect app.es1creative.com:443 2>/dev/null | openssl x509 -noout -enddate
+```
+
+### Ports / routing note
+
+The app listens on `3000` behind nginx (see §1). nginx terminates TLS using the
+cert above and proxies to the app — keep that mapping when editing configs.
+
